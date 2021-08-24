@@ -399,8 +399,8 @@ Java_java_io_UnixFileSystem_setLastModifiedTime(JNIEnv *env, jobject this,
 
             /* Preserve access time */
 #ifndef MACOSX
-            tv[0].tv_sec = sb.st_atim.tv_sec;
-            tv[0].tv_usec = sb.st_atim.tv_nsec / 1000;
+            tv[0].tv_sec = sb.st_atime;
+            tv[0].tv_usec = sb.st_atime_nsec / 1000;
 #else
             tv[0].tv_sec = sb.st_atimespec.tv_sec;
             tv[0].tv_usec = sb.st_atimespec.tv_nsec / 1000;
