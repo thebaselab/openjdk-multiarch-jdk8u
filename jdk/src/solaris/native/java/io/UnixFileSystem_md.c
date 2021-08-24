@@ -209,8 +209,8 @@ Java_java_io_UnixFileSystem_getLastModifiedTime(JNIEnv *env, jobject this,
         struct stat64 sb;
         if (stat64(path, &sb) == 0) {
 #ifndef MACOSX
-            rv  = (jlong)sb.st_mtim.tv_sec * 1000;
-            rv += (jlong)sb.st_mtim.tv_nsec / 1000000;
+            rv  = (jlong)sb.st_mtime * 1000;
+            rv += (jlong)sb.st_mtime_nsec / 1000000;
 #else
             rv  = (jlong)sb.st_mtimespec.tv_sec * 1000;
             rv += (jlong)sb.st_mtimespec.tv_nsec / 1000000;
