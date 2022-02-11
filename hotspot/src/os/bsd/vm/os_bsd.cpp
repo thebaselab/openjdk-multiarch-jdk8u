@@ -2356,12 +2356,14 @@ static char* anon_mmap(char* requested_addr, size_t bytes, bool fixed, bool exec
   int flags;
 
   flags = MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS;
+/*
 #ifdef __APPLE__
   if (executable) {
     guarantee(!fixed, "MAP_JIT (for execute) is incompatible with MAP_FIXED");
     flags |= MAP_JIT;
   }
 #endif
+*/
   if (fixed) {
     assert((uintptr_t)requested_addr % os::Bsd::page_size() == 0, "unaligned address");
     flags |= MAP_FIXED;

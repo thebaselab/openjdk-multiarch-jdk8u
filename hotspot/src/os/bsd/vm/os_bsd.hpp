@@ -25,6 +25,9 @@
 #ifndef OS_BSD_VM_OS_BSD_HPP
 #define OS_BSD_VM_OS_BSD_HPP
 
+static address GLOBAL_CODE_CACHE_ADDR;
+static uint32_t GLOBAL_CODE_CACHE_SIZE;
+
 // Bsd_OS defines the interface to Bsd operating systems
 
 // Information about the protection of the page at address '0' on this os.

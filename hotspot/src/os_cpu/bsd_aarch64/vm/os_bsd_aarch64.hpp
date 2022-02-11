@@ -60,6 +60,8 @@ private:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
     // pthread_jit_write_protect_np(mode == WXExec ? true : false);
+    mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ |
+      (mode == WXExec ? PROT_EXEC : PROT_WRITE));
     jit_write_protect(mode == WXExec);
 #pragma clang diagnostic pop
   }
