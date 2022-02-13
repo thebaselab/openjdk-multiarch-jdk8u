@@ -971,7 +971,7 @@ class os: AllStatic {
   // writeable and executable pages. No-op otherwise.
   static inline void current_thread_enable_wx(WXMode mode) {
     current_thread_enable_wx_impl(mode);
-    if (mode == WXEcec) {
+    if (mode == WXExec) {
       mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
     } else {
       mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
