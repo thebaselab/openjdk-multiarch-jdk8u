@@ -25,10 +25,7 @@
 #ifndef OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 #define OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 
-extern "C" {
-#include <sys/mman.h>
 #include "tcg-apple-jit.h"
-}
 
   static void setup_fpu();
 
@@ -63,7 +60,6 @@ private:
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability-new"
     // pthread_jit_write_protect_np(mode == WXExec ? true : false);
-    mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | (mode == WXExec ? PROT_EXEC : PROT_WRITE));
     jit_write_protect(mode == WXExec);
 #pragma clang diagnostic pop
   }

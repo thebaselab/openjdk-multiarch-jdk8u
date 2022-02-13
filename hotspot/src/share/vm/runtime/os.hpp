@@ -50,6 +50,7 @@
 # include <setjmp.h>
 # ifdef __APPLE__
 #  include <mach/mach_time.h>
+#  include <sys/mman.h>
 # endif
 #endif
 
@@ -742,6 +743,9 @@ class os: AllStatic {
   static bool  check_heap(bool force = false);      // verify C heap integrity
   static char* strdup(const char *, MEMFLAGS flags = mtInternal);  // Like strdup
 
+  // mprotect
+  static int mprotect(void *addr, size_t len, int prot);
+
 #ifndef PRODUCT
   static julong num_mallocs;         // # of calls to malloc/realloc
   static julong alloc_bytes;         // # of bytes allocated
@@ -967,6 +971,11 @@ class os: AllStatic {
   // writeable and executable pages. No-op otherwise.
   static inline void current_thread_enable_wx(WXMode mode) {
     current_thread_enable_wx_impl(mode);
+    if (mode == WXEcec) {
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+    } else {
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+    }
   }
 
 #ifndef TARGET_OS_FAMILY_windows
