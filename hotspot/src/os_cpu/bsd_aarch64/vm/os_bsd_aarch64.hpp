@@ -25,8 +25,10 @@
 #ifndef OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 #define OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 
+extern "C" {
 #include <sys/mman.h>
 #include "tcg-apple-jit.h"
+}
 
   static void setup_fpu();
 
