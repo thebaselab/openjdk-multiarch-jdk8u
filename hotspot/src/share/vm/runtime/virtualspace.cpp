@@ -369,8 +369,8 @@ ReservedCodeSpace::ReservedCodeSpace(size_t r_size,
                                      size_t rs_align,
                                      bool large) :
   ReservedSpace(r_size, rs_align, large, /*executable*/ RCS_EXECUTABLE) {
-  GLOBAL_CODE_CACHE_ADDR = (address)base();
-  GLOBAL_CODE_CACHE_SIZE = r_size;
+  os::GLOBAL_CODE_CACHE_ADDR = (address)base();
+  os::GLOBAL_CODE_CACHE_SIZE = r_size;
   MemTracker::record_virtual_memory_type((address)base(), mtCode);
 }
 #undef RCS_EXECUTABLE
