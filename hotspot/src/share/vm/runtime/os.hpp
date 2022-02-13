@@ -967,14 +967,16 @@ class os: AllStatic {
     bool _done;
   };
 
+  static address GLOBAL_CODE_CACHE_ADDR;
+  static uint32_t GLOBAL_CODE_CACHE_SIZE;
   // If the JVM is running in W^X mode, enable write or execute access to
   // writeable and executable pages. No-op otherwise.
   static inline void current_thread_enable_wx(WXMode mode) {
     current_thread_enable_wx_impl(mode);
     if (mode == WXExec) {
-      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
     } else {
-      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
     }
   }
 
