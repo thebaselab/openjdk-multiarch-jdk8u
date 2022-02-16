@@ -25,7 +25,10 @@
 #ifndef OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 #define OS_CPU_BSD_AARCH64_VM_OS_BSD_AARCH64_HPP
 
+#include <sys/mman.h>
 #include "tcg-apple-jit.h"
+
+  extern "C" static int mprotect(void *addr, size_t len, int prot);
 
   static void setup_fpu();
 
@@ -57,11 +60,16 @@
 private:
 
   static void current_thread_enable_wx_impl(WXMode mode) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Wunguarded-availability-new"
     // pthread_jit_write_protect_np(mode == WXExec ? true : false);
-    jit_write_protect(mode == WXExec);
-#pragma clang diagnostic pop
+    // jit_write_protect(mode == WXExec);
+    if (mode == WXExec) {
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+    } else {
+      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+    }
+// #pragma clang diagnostic pop
   }
 
 public:
