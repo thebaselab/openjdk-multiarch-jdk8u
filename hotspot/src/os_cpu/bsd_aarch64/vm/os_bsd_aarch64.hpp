@@ -28,7 +28,7 @@
 #include <sys/mman.h>
 #include "tcg-apple-jit.h"
 
-  extern "C" int mprotect(void *addr, size_t len, int prot);
+  //extern "C" int mprotect(void *addr, size_t len, int prot);
 
   static void setup_fpu();
 
