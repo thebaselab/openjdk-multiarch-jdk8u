@@ -65,9 +65,9 @@ private:
     // pthread_jit_write_protect_np(mode == WXExec ? true : false);
     // jit_write_protect(mode == WXExec);
     if (mode == WXExec) {
-      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
     } else {
-      mprotect(GLOBAL_CODE_CACHE_ADDR, GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+      mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
     }
 // #pragma clang diagnostic pop
   }

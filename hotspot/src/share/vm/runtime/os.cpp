@@ -80,9 +80,8 @@ long              os::_rand_seed          = 1;
 int               os::_processor_count    = 0;
 int               os::_initial_active_processor_count = 0;
 size_t            os::_page_sizes[os::page_sizes_max];
-
-address GLOBAL_CODE_CACHE_ADDR = NULL;
-uint32_t GLOBAL_CODE_CACHE_SIZE = 0;
+address os::GLOBAL_CODE_CACHE_ADDR = NULL;
+uint32_t os::GLOBAL_CODE_CACHE_SIZE = 0;
 
 #ifndef PRODUCT
 julong os::num_mallocs = 0;         // # of calls to malloc/realloc
