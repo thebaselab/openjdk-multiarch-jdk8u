@@ -520,7 +520,7 @@ $(eval $(call SetupNativeCompilation,BUILD_UNPACKEXE, \
     CFLAGS := $(UNPACKEXE_CFLAGS) $(CXXFLAGS_JDKEXE) \
         -DFULL, \
     CFLAGS_release := -DPRODUCT, \
-    CFLAGS_linux := -fPIC, \
+    CFLAGS_linux := -fPIC -fPIE, \
     CFLAGS_solaris := -KPIC, \
     CFLAGS_macosx := -fPIC, \
     MAPFILE := $(UNPACK_MAPFILE),\
@@ -529,7 +529,7 @@ $(eval $(call SetupNativeCompilation,BUILD_UNPACKEXE, \
     LDFLAGS_posix := $(LDFLAGS_JDKEXE) $(LDFLAGS_CXX_JDK) \
         $(call SET_SHARED_LIBRARY_NAME,$(LIBRARY_PREFIX)unpack$(SHARED_LIBRARY_SUFFIX)) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_linux := -lc, \
+    LDFLAGS_linux := -lc -pie, \
     LDFLAGS_solaris := $(UNPACKEXE_LDFLAGS_solaris) -lc, \
     LDFLAGS_SUFFIX := $(LIBCXX), \
     OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/unpackexe$(OUTPUT_SUBDIR), \
