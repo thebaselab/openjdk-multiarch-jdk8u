@@ -2223,7 +2223,7 @@ static void warn_fail_commit_memory(char* addr, size_t size, bool exec,
 //       left at the time of mmap(). This could be a potential
 //       problem.
 bool os::pd_commit_memory(char* addr, size_t size, bool exec) {
-  int prot = exec ? PROT_READ|PROT_WRITE|PROT_EXEC : PROT_READ|PROT_WRITE;
+  int prot = /* exec ? PROT_READ|PROT_WRITE|PROT_EXEC : */ PROT_READ|PROT_WRITE;
 #if defined(__OpenBSD__)
   // XXX: Work-around mmap/MAP_FIXED bug temporarily on OpenBSD
   if (::mprotect(addr, size, prot) == 0) {
@@ -2430,6 +2430,7 @@ bool os::protect_memory(char* addr, size_t bytes, ProtType prot,
   case MEM_PROT_READ: p = PROT_READ; break;
   case MEM_PROT_RW:   p = PROT_READ|PROT_WRITE; break;
   case MEM_PROT_RWX:  p = PROT_READ|PROT_WRITE|PROT_EXEC; break;
+  case MEM_PROT_RX:   p = PROT_READ|PROT_EXEC; break;
   default:
     ShouldNotReachHere();
   }

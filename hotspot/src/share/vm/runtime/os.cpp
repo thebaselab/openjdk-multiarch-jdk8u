@@ -81,6 +81,7 @@ int               os::_processor_count    = 0;
 int               os::_initial_active_processor_count = 0;
 size_t            os::_page_sizes[os::page_sizes_max];
 address os::GLOBAL_CODE_CACHE_ADDR = NULL;
+uintptr_t os::GLOBAL_CODE_CACHE_DIFF = 0;
 uint32_t os::GLOBAL_CODE_CACHE_SIZE = 0;
 
 #ifndef PRODUCT

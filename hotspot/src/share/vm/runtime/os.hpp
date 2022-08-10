@@ -347,7 +347,7 @@ class os: AllStatic {
   // are passed.
   static void   pretouch_memory(char* start, char* end);
 
-  enum ProtType { MEM_PROT_NONE, MEM_PROT_READ, MEM_PROT_RW, MEM_PROT_RWX };
+  enum ProtType { MEM_PROT_NONE, MEM_PROT_READ, MEM_PROT_RW, MEM_PROT_RWX, MEM_PROT_RX };
   static bool   protect_memory(char* addr, size_t bytes, ProtType prot,
                                bool is_committed = true);
 
@@ -965,6 +965,7 @@ class os: AllStatic {
   };
 
   static address GLOBAL_CODE_CACHE_ADDR;
+  static uintptr_t GLOBAL_CODE_CACHE_DIFF;
   static uint32_t GLOBAL_CODE_CACHE_SIZE;
   // If the JVM is running in W^X mode, enable write or execute access to
   // writeable and executable pages. No-op otherwise.

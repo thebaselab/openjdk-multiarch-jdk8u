@@ -216,6 +216,30 @@ JVM_handle_bsd_signal(int sig,
 
   Thread* t = ThreadLocalStorage::get_thread_slow();
 
+  if (sig == SIGBUS) {
+    address addr = (address) os::Bsd::ucontext_get_pc(uc);
+    //address addr = (address) info->si_addr;
+    //if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000) {
+    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, 0x270000, PROT_READ | PROT_EXEC);
+    //} else if (addr >= os::GLOBAL_CODE_CACHE_ADDR + 0x270000 && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000*2) {
+    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR + 0x270000, 0x270000, PROT_READ | PROT_EXEC);
+    if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_SIZE) {
+      return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+    } else { // if (t->is_Compiler_thread() || t->is_VM_thread()) {
+      return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+    }
+  }
+/*
+  if (addr >= os::GLOBAL_CODE_CACHE_ADDR - os::GLOBAL_CODE_CACHE_DIFF && addr < os::GLOBAL_CODE_CACHE_ADDR) {
+    uc->context_pc = (uint64_t)addr + os::GLOBAL_CODE_CACHE_DIFF;
+    return 1;
+  } else if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_DIFF) {
+    // try again
+    uc->context_pc = (uint64_t)addr - os::GLOBAL_CODE_CACHE_DIFF;
+    return 1;
+  }
+*/
+
   // Must do this before SignalHandlerMark, if crash protection installed we will longjmp away
   // (no destructors can be run)
   os::ThreadCrashProtection::check_crash_protection(sig, t);

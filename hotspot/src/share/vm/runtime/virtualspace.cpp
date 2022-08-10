@@ -42,6 +42,18 @@
 #ifdef TARGET_OS_FAMILY_bsd
 # include "os_bsd.inline.hpp"
 # include "os_bsd.hpp"
+# include <mach/mach.h>
+extern "C" kern_return_t mach_vm_remap(vm_map_t target_task,
+                                   mach_vm_address_t *target_address,
+                                   mach_vm_size_t size,
+                                   mach_vm_offset_t mask,
+                                   int flags,
+                                   vm_map_t src_task,
+                                   mach_vm_address_t src_address,
+                                   boolean_t copy,
+                                   vm_prot_t *cur_protection,
+                                   vm_prot_t *max_protection,
+                                   vm_inherit_t inheritance);
 #endif
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
@@ -371,6 +383,45 @@ ReservedCodeSpace::ReservedCodeSpace(size_t r_size,
   ReservedSpace(r_size, rs_align, large, /*executable*/ RCS_EXECUTABLE) {
   os::GLOBAL_CODE_CACHE_ADDR = (address)base();
   os::GLOBAL_CODE_CACHE_SIZE = r_size;
+
+  #warning RW_RX JIT mirroring was disabled
+#ifndef TARGET_OS_FAMILY_bsd
+  tty->print_cr("base(): %p", base());
+
+/*
+  // x21 modification happens at:
+  //0x10ecf5ee8 - 0x10ece4000 = 0x11ee8
+  if (!os::protect_memory((char *)base(), 0x11ee8, os::MEM_PROT_RW)
+  ||!os::protect_memory((char *)base()+0x11ee8, r_size-0x11ee8, os::MEM_PROT_RX)) {
+    fatal("cannot protect protection page for jit splitwx (rw)");
+  }
+*/
+
+  kern_return_t ret;
+  vm_prot_t cur_prot, max_prot;
+
+  ret = mach_vm_remap(mach_task_self(), (mach_vm_address_t *)&os::GLOBAL_CODE_CACHE_ADDR, r_size, 0,
+    VM_FLAGS_ANYWHERE, mach_task_self(), (mach_vm_address_t)base(), false, &cur_prot, &max_prot, VM_INHERIT_NONE);
+  if (ret != KERN_SUCCESS) {
+    fatal("cannot vm_remap for jit splitwx");
+  }
+
+  //os::protect_memory((char *)base(), r_size, os::MEM_PROT_RX);
+  // Protect memory at the base of the mirrored region.
+  if (!os::protect_memory((char *)os::GLOBAL_CODE_CACHE_ADDR, r_size, os::MEM_PROT_RX)) {
+    fatal("cannot protect protection page for jit splitwx (rx)");
+  }
+
+  // we need to verify that it allocates the correct size
+  //base()[r_size-1] = 0;
+
+  tty->cr();
+  tty->print_cr("RW: %p, RX: %p", base(), os::GLOBAL_CODE_CACHE_ADDR);
+
+  os::GLOBAL_CODE_CACHE_DIFF = (char *)os::GLOBAL_CODE_CACHE_ADDR - base();
+  os::GLOBAL_CODE_CACHE_SIZE = r_size;
+#endif
+
   MemTracker::record_virtual_memory_type((address)base(), mtCode);
 }
 #undef RCS_EXECUTABLE
