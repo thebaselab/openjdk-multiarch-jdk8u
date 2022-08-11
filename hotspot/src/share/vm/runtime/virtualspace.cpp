@@ -384,9 +384,14 @@ ReservedCodeSpace::ReservedCodeSpace(size_t r_size,
   os::GLOBAL_CODE_CACHE_ADDR = (address)base();
   os::GLOBAL_CODE_CACHE_SIZE = r_size;
 
-  #warning RW_RX JIT mirroring was disabled
-#ifndef TARGET_OS_FAMILY_bsd
+  if (!os::protect_memory(base(), r_size, os::MEM_PROT_RW)) {
+    fatal("cannot protect protection page for jit (rw)");
+  }
+
   tty->print_cr("base(): %p", base());
+
+  #warning W^X JIT mirroring was disabled
+#ifndef TARGET_OS_FAMILY_bsd
 
 /*
   // x21 modification happens at:

@@ -214,19 +214,17 @@ JVM_handle_bsd_signal(int sig,
                         int abort_if_unrecognized) {
   ucontext_t* uc = (ucontext_t*) ucVoid;
 
-  Thread* t = ThreadLocalStorage::get_thread_slow();
-
   if (sig == SIGBUS) {
-    address addr = (address) os::Bsd::ucontext_get_pc(uc);
+    address addr = os::Bsd::ucontext_get_pc(uc);
     //address addr = (address) info->si_addr;
     //if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000) {
     //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, 0x270000, PROT_READ | PROT_EXEC);
     //} else if (addr >= os::GLOBAL_CODE_CACHE_ADDR + 0x270000 && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000*2) {
     //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR + 0x270000, 0x270000, PROT_READ | PROT_EXEC);
-    if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_SIZE) {
-      return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_EXEC);
+    if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_SIZE && addr == info->si_addr) {
+      return !mprotect((address) ((uintptr_t)addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
     } else { // if (t->is_Compiler_thread() || t->is_VM_thread()) {
-      return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, os::GLOBAL_CODE_CACHE_SIZE, PROT_READ | PROT_WRITE);
+      return !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
     }
   }
 /*
@@ -239,6 +237,8 @@ JVM_handle_bsd_signal(int sig,
     return 1;
   }
 */
+
+  Thread* t = ThreadLocalStorage::get_thread_slow();
 
   // Must do this before SignalHandlerMark, if crash protection installed we will longjmp away
   // (no destructors can be run)
