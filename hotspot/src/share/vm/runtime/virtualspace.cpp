@@ -388,10 +388,10 @@ ReservedCodeSpace::ReservedCodeSpace(size_t r_size,
     fatal("cannot protect protection page for jit (rw)");
   }
 
-  tty->print_cr("base(): %p", base());
-
-  #warning W^X JIT mirroring was disabled
+  // JIT W^X mirror mapped part, commented out because it is broken.
 #ifndef TARGET_OS_FAMILY_bsd
+
+  tty->print_cr("base(): %p", base());
 
 /*
   // x21 modification happens at:
