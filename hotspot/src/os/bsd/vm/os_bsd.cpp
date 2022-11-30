@@ -967,6 +967,14 @@ extern "C" Thread* get_thread() {
   return ThreadLocalStorage::thread();
 }
 
+//////////////////////////////////////////////////////////////////////////////
+// primordial thread
+
+// Check if current thread is the primordial thread, similar to Solaris thr_main.
+bool os::is_primordial_thread(void) {
+  return pthread_main_np();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // time support
