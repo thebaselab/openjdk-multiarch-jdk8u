@@ -476,7 +476,7 @@ class os: AllStatic {
   // need special-case handling of the primordial thread if it attaches
   // to the VM.
   static bool is_primordial_thread(void)
-#if defined(_WINDOWS) || defined(BSD)
+#if defined(_WINDOWS) //|| defined(BSD)
     // No way to identify the primordial thread.
     { return false; }
 #else
