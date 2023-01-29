@@ -84,6 +84,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
       -DUSE_PLATFORM_MIDI_IN=TRUE
   LIBJSOUND_SRC_DIRS += $(JDK_TOPDIR)/src/macosx/native/com/sun/media/sound
   LIBJSOUND_SRC_FILES += \
+      PLATFORM_API_iPhoneOS_Permission.m \
       PLATFORM_API_MacOSX_Utils.cpp \
       PLATFORM_API_MacOSX_PCM.cpp \
       PLATFORM_API_MacOSX_Ports.cpp \
@@ -155,8 +156,7 @@ endif
 
 LIBJSOUND_CFLAGS += -DEXTRA_SOUND_JNI_LIBS='"$(EXTRA_SOUND_JNI_LIBS)"'
 
-# TODO iOS
-ifneq ($(BUILD_IOS),1)
+# -framework AudioUnit
 $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUND, \
     LIBRARY := jsound, \
     OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
@@ -171,7 +171,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUND, \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
     LDFLAGS_macosx := -framework CoreAudio -framework CoreFoundation \
-        -framework CoreServices -DNOTIOS_framework -DNOTIOS_AudioUnit $(LIBCXX) \
+        -framework CoreServices -framework AVFoundation $(LIBCXX) \
         -framework CoreMIDI -framework AudioToolbox, \
     LDFLAGS_windows := $(WIN_JAVA_LIB) advapi32.lib winmm.lib, \
     LDFLAGS_SUFFIX_posix := -ljava -ljvm, \
@@ -187,7 +187,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJSOUND, \
 $(BUILD_LIBJSOUND): $(BUILD_LIBJAVA)
 
 BUILD_LIBRARIES += $(BUILD_LIBJSOUND)
-endif
 
 ##########################################################################################
 
