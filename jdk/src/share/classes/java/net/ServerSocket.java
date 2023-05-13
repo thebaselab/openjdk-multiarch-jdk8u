@@ -33,7 +33,10 @@ import java.nio.channels.ServerSocketChannel;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 
-import sun.security.util.SecurityConstants;
+import com.azul.tooling.in.NetConnectionEvent;
+import com.azul.tooling.in.Tooling;
+
+import static java.lang.System.currentTimeMillis;
 
 /**
  * This class implements server sockets. A server socket waits for
@@ -526,8 +529,14 @@ class ServerSocket implements java.io.Closeable {
             throw new SocketException("Socket is closed");
         if (!isBound())
             throw new SocketException("Socket is not bound yet");
+        Long startTimeConnection = currentTimeMillis();
         Socket s = new Socket((SocketImpl) null);
         implAccept(s);
+        if (NetConnectionEvent.isEnabled()) {
+            Tooling.notifyEvent(NetConnectionEvent.tcpConnectionEvent(
+                    s.getLocalAddress(), s.getLocalPort(), s.getInetAddress(), s.getPort(), startTimeConnection,
+                    currentTimeMillis(), false));
+        }
         return s;
     }
 

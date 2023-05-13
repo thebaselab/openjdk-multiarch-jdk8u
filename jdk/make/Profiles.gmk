@@ -72,6 +72,10 @@ ifneq ($(ENABLE_JFR), true)
   FULL_JRE_JAR_FILES := $(filter-out jfr.jar, $(FULL_JRE_JAR_FILES))
 endif
 
+ifneq ($(ENABLE_COM_AZUL_TOOLING), true)
+  FULL_JRE_JAR_FILES := $(filter-out cat.jar, $(FULL_JRE_JAR_FILES))
+endif
+
 FULL_JRE_JARS := \
     $(addprefix $(IMAGES_OUTPUTDIR)/lib/, $(FULL_JRE_JAR_FILES)) \
     $(PROFILE_3_JARS)
@@ -102,6 +106,10 @@ endif
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
   ALL_JARS += $(IMAGES_OUTPUTDIR)/lib/ext/sunmscapi.jar
+endif
+
+ifeq ($(ENABLE_CRS), true)
+  ALL_JARS += $(IMAGES_OUTPUTDIR)/lib/ext/crs-agent.jar
 endif
 
 ifeq ($(PROFILE), profile_1)

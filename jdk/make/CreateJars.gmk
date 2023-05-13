@@ -89,6 +89,53 @@ $(eval $(call SetupArchive,BUILD_LOCALEDATA_JAR, , \
     SKIP_METAINF := true))
 
 ##########################################################################################
+
+# Function to expand foo/*.class into the set of classes
+# NOTE: Classfiles with $ in their name are problematic as that is the
+# meta-character for both make and the shell! Hence the \$$$$ substitution.
+# But note that if you echo these values they will NOT display as expected.
+class_list = $(patsubst $(JDK_OUTPUTDIR)/classes/%,%, \
+    $(foreach i, $(1), $(subst $$,\$$$$, $(wildcard $(JDK_OUTPUTDIR)/classes/$i))))
+
+JFR_CLASSES := jdk/management/jfr \
+    jdk/jfr/conf \
+    jdk/jfr/consumer \
+    jdk/jfr/internal \
+    $(call class_list, jdk/jfr/events/*.class) \
+    $(call class_list, jdk/jfr/*.class)
+
+RT_JAR_JFR_CLASSES := \
+    jdk/jfr/Category.class \
+    jdk/jfr/ContentType.class \
+    jdk/jfr/Description.class \
+    jdk/jfr/Enabled.class \
+    jdk/jfr/Event.class \
+    jdk/jfr/Label.class \
+    jdk/jfr/MetadataDefinition.class \
+    jdk/jfr/Name.class \
+    jdk/jfr/package-info.class \
+    jdk/jfr/StackTrace.class \
+    jdk/jfr/Registered.class \
+    jdk/jfr/Relational.class \
+    jdk/jfr/Timestamp.class \
+    jdk/jfr/events/AbstractJDKEvent.class \
+    jdk/jfr/events/CertificateId.class \
+    jdk/jfr/events/SecurityPropertyModificationEvent.class \
+    jdk/jfr/events/TLSHandshakeEvent.class \
+    jdk/jfr/events/X509CertificateEvent.class \
+    jdk/jfr/events/X509ValidationEvent.class
+
+JFR_INCLUDES := \
+    $(filter-out $(RT_JAR_JFR_CLASSES), $(JFR_CLASSES))
+
+RT_JAR_CAT_CLASSES := \
+    $(call class_list, com/azul/tooling/in/*.class)
+
+CAT_IMPL_CLASSES := \
+    $(call class_list, com/azul/tooling/*.class)
+
+
+##########################################################################################
 #
 # Different variants of rt.jar are built based on the current profile. The output
 # directory is augmented with the profile name so that the final jar file and all the
@@ -211,8 +258,8 @@ RT_JAR_EXCLUDES += \
     sun/util/cldr/CLDRLocaleDataMetaInfo.class \
     sun/util/resources/cldr \
     $(LOCALEDATA_INCLUDES) \
-    jdk/management/jfr \
-    jdk/jfr
+    $(JFR_INCLUDES) \
+    $(CAT_IMPL_CLASSES)
 
 # Find all files in the classes dir to use as dependencies. This could be more fine granular.
 ALL_FILES_IN_CLASSES := $(call not-containing, _the., $(filter-out %javac_state, \
@@ -405,13 +452,27 @@ ifeq ($(ENABLE_JFR), true)
       SUFFIXES := .class .jfc .xsd .xml, \
       INCLUDES := jdk/management/jfr \
           jdk/jfr, \
+      EXCLUDES := $(RT_JAR_JFR_CLASSES), \
       JAR := $(IMAGES_OUTPUTDIR)/lib/jfr.jar, \
       SKIP_METAINF := true, \
       MANIFEST := $(MAINMANIFEST), \
       CHECK_COMPRESS_JAR := true))
 
 endif
+##########################################################################################
 
+ifeq ($(ENABLE_COM_AZUL_TOOLING), true)
+  $(eval $(call SetupArchive,BUILD_CAT_JAR, , \
+      SRCS := $(JDK_OUTPUTDIR)/classes, \
+      SUFFIXES := .class .yaml, \
+      INCLUDES := com/azul/tooling, \
+      EXCLUDES := $(RT_JAR_CAT_CLASSES), \
+      JAR := $(IMAGES_OUTPUTDIR)/lib/cat.jar, \
+      SKIP_METAINF := true, \
+      MANIFEST := $(MAINMANIFEST), \
+      CHECK_COMPRESS_JAR := true))
+
+endif
 ##########################################################################################
 
 $(eval $(call SetupArchive,BUILD_JSSE_JAR, , \
@@ -555,7 +616,8 @@ EXCLUDE_PROPWARN_PKGS = com.sun.java.swing.plaf.windows \
 # with a new module system (being discussed for JDK 8).
 #
 EXPORTED_PRIVATE_PKGS = com.oracle.net \
-    com.oracle.nio
+    com.oracle.nio \
+    jdk.internal.platform
 
 $(IMAGES_OUTPUTDIR)/symbols/_the.symbols: $(IMAGES_OUTPUTDIR)/lib/rt.jar
 	$(RM) -r $(IMAGES_OUTPUTDIR)/symbols/META-INF/sym

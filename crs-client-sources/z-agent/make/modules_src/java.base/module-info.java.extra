@@ -1,0 +1,15 @@
+
+exports sun.net.dns to com.azul.crs.client;
+exports sun.launcher to com.azul.crs.client;
+exports sun.net.www.protocol.jar to com.azul.crs.client;
+exports sun.net.www.protocol.http to com.azul.crs.client;
+exports sun.net.www.protocol.https to com.azul.crs.client;
+exports sun.net.www.http to com.azul.crs.client;
+opens sun.net.www.protocol.http to com.azul.crs.client;
+opens sun.net.www.protocol.https to com.azul.crs.client;
+opens sun.net.www.http to com.azul.crs.client;
+exports com.azul.tooling.in to com.azul.crs.client;
+opens jdk.internal.loader to com.azul.crs.client;
+opens java.util.zip to com.azul.crs.client;
+exports sun.security.validator to com.azul.crs.client;
+

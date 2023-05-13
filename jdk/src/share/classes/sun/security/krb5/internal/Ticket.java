@@ -84,12 +84,12 @@ public class Ticket implements Cloneable {
     }
 
     public Ticket(byte[] data) throws Asn1Exception,
-    RealmException, KrbApErrException, IOException {
+            RealmException, KrbApErrException, IOException {
         init(new DerValue(data));
     }
 
     public Ticket(DerValue encoding) throws Asn1Exception,
-    RealmException, KrbApErrException, IOException {
+            RealmException, KrbApErrException, IOException {
         init(encoding);
     }
 

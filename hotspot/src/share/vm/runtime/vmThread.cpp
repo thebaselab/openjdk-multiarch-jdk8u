@@ -254,7 +254,7 @@ void VMThread::run() {
   assert(this == vm_thread(), "check");
 
   this->initialize_thread_local_storage();
-  this->set_native_thread_name(this->name());
+  this->initialize_named_thread();
   this->record_stack_base_and_size();
   this->init_wx();
   // Notify_lock wait checks on active_handles() to rewait in

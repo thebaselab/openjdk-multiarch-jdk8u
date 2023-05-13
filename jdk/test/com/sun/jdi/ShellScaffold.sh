@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-# Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2002, 2017, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -201,9 +201,9 @@ findPid()
             res=$?
             ;;
         Windows* | CYGWIN*)
-            # Don't use ps on cygwin since it sometimes misses
-            # some processes (!).
-            tasklist /NH | $grep " $1 " > $devnull 2>&1
+            # No longer possible to use tasklist as Cygwin PIDs are no longer
+            # same as Windows PIDs
+            $psCmd | $grep '^ *'"$1 " > $devnull 2>&1
             res=$?
             ;;
        *)
@@ -267,10 +267,10 @@ setup()
          # treat them as control chars on mks (eg \t is tab)
          # Oops; windows mks really seems to want this cat line
          # to start in column 1
-         if [ -w "$SystemRoot" ] ; then
-            tmpFile=$SystemRoot/tmp.$$
-         elif [ -w "$SYSTEMROOT" ] ; then
-            tmpFile=$SYSTEMROOT/tmp.$$
+         if [ -w "$Temp" ] ; then
+            tmpFile=$Temp/tmp.$$
+         elif [ -w "$TEMP" ] ; then
+            tmpFile=$TEMP/tmp.$$
          else
             tmpFile=tmp.$$
          fi
@@ -281,7 +281,7 @@ EOF
          rm -f $tmpFile
          # on mks
          grep=egrep
-         psCmd=ps
+         psCmd="ps -W"
          jstack=jstack.exe
          ;;
        SunOS | Linux | Darwin | AIX)

@@ -1483,7 +1483,7 @@ address InterpreterGenerator::generate_normal_entry(bool synchronized) {
 #endif
 
 #if INCLUDE_CRS
-  if (UseCRS) {
+  if (ConnectedRuntime::should_notify_first_call()) {
     // free registers:
     // rcx
     // rdx

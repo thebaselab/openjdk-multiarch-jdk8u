@@ -53,7 +53,11 @@
 #define  FT26Dot6ToFloat(x)  ((x) / ((float) (1<<6)))
 #define  FT26Dot6ToInt(x) (((int)(x)) >> 6)
 
-typedef void (EmboldenGlyphSlotFunc) (FT_GlyphSlot slot);
+typedef enum {
+    SYSTEM,   // FT_GlyphSlot_Embolden
+    COMPAT,   // FT_Outline_EmboldenXY, y==0
+    REGULAR   // FT_Outline_Embolden
+} EmboldenMode;
 
 typedef struct {
     /* Important note:
@@ -82,7 +86,7 @@ typedef struct {
     unsigned fileSize;
     TTLayoutTableCache* layoutTables;
 
-    EmboldenGlyphSlotFunc* EmboldenGlyphSlot;
+    EmboldenMode emboldenMode;
 } FTScalerInfo;
 
 typedef struct FTScalerContext {
@@ -307,19 +311,90 @@ static void setInterpreterVersion(FT_Library library) {
 }
 
 /*
- * Checks that the version of Freetype in use is the same or newer than the given version.
+ * FT_GlyphSlot_Embolden (ftsynth.c) uses FT_MulFix(upem, y_scale) / 24
+ * I prefer something a little less bold, so using 32 instead of 24.
  */
-int FreetypeVersionCheck(FTScalerInfo *scalerInfo, FT_Int majorVersion,
-                         FT_Int minorVersion, FT_Int patchVersion)
-{
-    return scalerInfo->majorVersion > majorVersion ||
-               (scalerInfo->majorVersion == majorVersion &&
-                   (scalerInfo->minorVersion > minorVersion ||
-                       (scalerInfo->minorVersion == minorVersion &&
-                           scalerInfo->patchVersion >= patchVersion)));
+#define BOLD_DIVISOR (32)
+#define BOLD_FACTOR(units_per_EM, y_scale) \
+    ((FT_MulFix(units_per_EM, y_scale) / BOLD_DIVISOR ))
+
+#define BOLD_MODIFIER(units_per_EM, y_scale) \
+    (context->doBold ? BOLD_FACTOR(units_per_EM, y_scale) : 0)
+
+static void GlyphSlot_Embolden(FT_GlyphSlot slot, FT_Matrix transform) {
+    FT_Pos extra = 0;
+
+    /*
+     * Does it make sense to embolden an empty image, such as SPACE ?
+     * We'll say no. A fixed width font might be the one case, but
+     * nothing in freetype made provision for this. And freetype would also
+     * have adjusted the metrics of zero advance glyphs (we won't, see below).
+     */
+    if (!slot ||
+        slot->format != FT_GLYPH_FORMAT_OUTLINE ||
+        slot->metrics.width == 0 ||
+        slot->metrics.height == 0)
+    {
+        return;
+    }
+
+    extra = BOLD_FACTOR(slot->face->units_per_EM,
+                        slot->face->size->metrics.y_scale);
+
+    /*
+     * It should not matter that the outline is rotated already,
+     * since we are applying the strength equally in X and Y.
+     * If that changes, then it might.
+     */
+    FT_Outline_Embolden(&slot->outline, extra);
+    slot->metrics.width        += extra;
+    slot->metrics.height       += extra;
+
+    // Some glyphs are meant to be used as marks or diacritics, so
+    // have a shape but do not have an advance.
+    // Let's not adjust the metrics of any glyph that is zero advance.
+    if (slot->linearHoriAdvance == 0) {
+        return;
+    }
+
+    if (slot->advance.x) {
+        slot->advance.x += FT_MulFix(extra, transform.xx);
+    }
+
+    if (slot->advance.y) {
+        slot->advance.y += FT_MulFix(extra, transform.yx);
+    }
+
+    // The following need to be adjusted but no rotation
+    // linear advance is in 16.16 format, extra is 26.6
+    slot->linearHoriAdvance    += extra << 10;
+    // these are pixel values stored in 26.6 format.
+    slot->metrics.horiAdvance  += extra;
+    slot->metrics.vertAdvance  += extra;
+    slot->metrics.horiBearingY += extra;
 }
 
-static void EmboldenGlyphSlot(FT_GlyphSlot slot);
+EmboldenMode GetEmboldenMode(FTScalerInfo *scalerInfo, FT_Int majorVersion,
+                             FT_Int minorVersion, FT_Int patchVersion)
+{
+    char* props;
+
+    if (scalerInfo->majorVersion > majorVersion ||
+           (scalerInfo->majorVersion == majorVersion &&
+               (scalerInfo->minorVersion > minorVersion ||
+                   (scalerInfo->minorVersion == minorVersion &&
+                       scalerInfo->patchVersion >= patchVersion)))) {
+        props = getenv("FREETYPE_PROPERTIES");
+        if (props != NULL && strstr(props, "fntmgr:embolden=compat") != NULL) {
+            return COMPAT;
+        } else if (props != NULL && strstr(props, "fntmgr:embolden=regular") != NULL) {
+            return REGULAR;
+        }
+        return COMPAT;
+    } else {
+        return SYSTEM;
+    }
+}
 
 /*
  * Class:     sun_font_FreetypeFontScaler
@@ -365,14 +440,7 @@ Java_sun_font_FreetypeFontScaler_initNativeScaler(
     FT_Library_Version(scalerInfo->library, &scalerInfo->majorVersion,
                        &scalerInfo->minorVersion, &scalerInfo->patchVersion);
 
-    // FT_Outline_EmboldenXY available since 2.4.10
-    // Init function pointer to EmboldenGlyphSlot if Freetype version >= 2.4.10
-    // or init it to FT_GlyphSlot_Embolden as fallback
-    if (FreetypeVersionCheck(scalerInfo, 2, 4, 10)) {
-        scalerInfo->EmboldenGlyphSlot = (EmboldenGlyphSlotFunc*) EmboldenGlyphSlot;
-    } else {
-        scalerInfo->EmboldenGlyphSlot = (EmboldenGlyphSlotFunc*) FT_GlyphSlot_Embolden;
-    }
+    scalerInfo->emboldenMode = GetEmboldenMode(scalerInfo, 2, 4, 10);
 
 #define TYPE1_FROM_JAVA        2
 
@@ -510,17 +578,41 @@ Java_sun_font_FreetypeFontScaler_createScalerContextNative(
     return ptr_to_jlong(context);
 }
 
+// values used by FreeType (as of version 2.10.1) for italics transformation matrix in FT_GlyphSlot_Oblique
+#define FT_MATRIX_ONE 0x10000
+#define FT_MATRIX_OBLIQUE_XY 0x0366A
+
+static void setupTransform(FT_Matrix* target, FTScalerContext *context) {
+    FT_Matrix* transform = &context->transform;
+    if (context->doItalize) {
+        // we cannot use FT_GlyphSlot_Oblique as it doesn't work well with arbitrary transforms,
+        // so we add corresponding shear transform to the requested glyph transformation
+        target->xx = FT_MATRIX_ONE;
+        target->xy = FT_MATRIX_OBLIQUE_XY;
+        target->yx = 0;
+        target->yy = FT_MATRIX_ONE;
+        FT_Matrix_Multiply(transform, target);
+    } else {
+        target->xx = transform->xx;
+        target->xy = transform->xy;
+        target->yx = transform->yx;
+        target->yy = transform->yy;
+    }
+}
+
 static int setupFTContext(JNIEnv *env,
                           jobject font2D,
                           FTScalerInfo *scalerInfo,
                           FTScalerContext *context) {
+    FT_Matrix matrix;
     int errCode = 0;
 
     scalerInfo->env = env;
     scalerInfo->font2D = font2D;
 
     if (context != NULL) {
-        FT_Set_Transform(scalerInfo->face, &context->transform, NULL);
+        setupTransform(&matrix, context);
+        FT_Set_Transform(scalerInfo->face, &matrix, NULL);
 
         errCode = FT_Set_Char_Size(scalerInfo->face, 0, context->ptsz, 72, 72);
 
@@ -534,17 +626,14 @@ static int setupFTContext(JNIEnv *env,
     return errCode;
 }
 
-/* ftsynth.c uses (0x10000, 0x0366A, 0x0, 0x10000) matrix to get oblique
-   outline.  Therefore x coordinate will change by 0x0366A*y.
-   Note that y coordinate does not change. These values are based on
-   libfreetype version 2.9.1. */
-#define OBLIQUE_MODIFIER(y)  (context->doItalize ? ((y)*0x366A/0x10000) : 0)
+// using same values as for the transformation matrix
+#define OBLIQUE_MODIFIER(y)  (context->doItalize ? ((y)*FT_MATRIX_OBLIQUE_XY/FT_MATRIX_ONE) : 0)
 
 /* FT_GlyphSlot_Embolden (ftsynth.c) uses FT_MulFix(units_per_EM, y_scale) / 24
  * strength value when glyph format is FT_GLYPH_FORMAT_OUTLINE. This value has
  * been taken from libfreetype version 2.6 and remain valid at least up to
  * 2.9.1. */
-#define BOLD_MODIFIER(units_per_EM, y_scale) \
+#define BOLD_MODIFIER_COMPAT(units_per_EM, y_scale) \
     (context->doBold ? FT_MulFix(units_per_EM, y_scale) / 24 : 0)
 
 /*
@@ -560,6 +649,7 @@ Java_sun_font_FreetypeFontScaler_getFontMetricsNative(
     jobject metrics;
     jfloat ax, ay, dx, dy, bx, by, lx, ly, mx, my;
     jfloat f0 = 0.0;
+    FT_Pos bm;
     FTScalerContext *context =
         (FTScalerContext*) jlong_to_ptr(pScalerContext);
     FTScalerInfo *scalerInfo =
@@ -630,11 +720,17 @@ Java_sun_font_FreetypeFontScaler_getFontMetricsNative(
                       (jlong) scalerInfo->face->size->metrics.y_scale))
                   + ay - dy;
     /* max advance */
+    if (scalerInfo->emboldenMode == COMPAT) {
+        bm = BOLD_MODIFIER_COMPAT(scalerInfo->face->units_per_EM,
+                                  scalerInfo->face->size->metrics.y_scale);
+    } else {
+        bm = BOLD_MODIFIER(scalerInfo->face->units_per_EM,
+                           scalerInfo->face->size->metrics.y_scale);
+    }
     mx = (jfloat) FT26Dot6ToFloat(
                      scalerInfo->face->size->metrics.max_advance +
                      OBLIQUE_MODIFIER(scalerInfo->face->size->metrics.height) +
-                     BOLD_MODIFIER(scalerInfo->face->units_per_EM,
-                             scalerInfo->face->size->metrics.y_scale));
+                     bm);
     my = 0;
 
     metrics = (*env)->NewObject(env,
@@ -952,10 +1048,13 @@ static jlong
 
     /* apply styles */
     if (context->doBold) { /* if bold style */
-        scalerInfo->EmboldenGlyphSlot(ftglyph);
-    }
-    if (context->doItalize) { /* if oblique */
-        FT_GlyphSlot_Oblique(ftglyph);
+        if (scalerInfo->emboldenMode == SYSTEM) {
+            FT_GlyphSlot_Embolden(ftglyph);
+        } else if (scalerInfo->emboldenMode == COMPAT) {
+            EmboldenGlyphSlot(ftglyph);
+        } else {
+            GlyphSlot_Embolden(ftglyph, context->transform);
+        }
     }
 
     /* generate bitmap if it is not done yet
@@ -1020,13 +1119,23 @@ static jlong
             (float) (advh * FTFixedToFloat(context->transform.xy));
     } else {
         if (!ftglyph->advance.y) {
-            glyphInfo->advanceX =
-              (float) FT26Dot6ToInt(ftglyph->advance.x);
+            if (scalerInfo->emboldenMode == COMPAT) {
+                glyphInfo->advanceX =
+                  (float) FT26Dot6ToInt(ftglyph->advance.x);
+            } else {
+                glyphInfo->advanceX =
+                  FT26Dot6ToFloat(ftglyph->advance.x);
+            }
             glyphInfo->advanceY = 0;
         } else if (!ftglyph->advance.x) {
             glyphInfo->advanceX = 0;
-            glyphInfo->advanceY =
-              (float) FT26Dot6ToInt(-ftglyph->advance.y);
+            if (scalerInfo->emboldenMode == COMPAT) {
+                glyphInfo->advanceY =
+                  (float) FT26Dot6ToInt(-ftglyph->advance.y);
+            } else {
+                glyphInfo->advanceY =
+                  FT26Dot6ToFloat(-ftglyph->advance.y);
+            }
         } else {
             glyphInfo->advanceX = FT26Dot6ToFloat(ftglyph->advance.x);
             glyphInfo->advanceY = -FT26Dot6ToFloat(ftglyph->advance.y);
@@ -1229,10 +1338,11 @@ static FT_Outline* getFTOutline(JNIEnv* env, jobject font2D,
 
     /* apply styles */
     if (context->doBold) { /* if bold style */
-        FT_GlyphSlot_Embolden(ftglyph);
-    }
-    if (context->doItalize) { /* if oblique */
-        FT_GlyphSlot_Oblique(ftglyph);
+        if (scalerInfo->emboldenMode == REGULAR) {
+            GlyphSlot_Embolden(ftglyph, context->transform);
+        } else {
+            FT_GlyphSlot_Embolden(ftglyph);
+        }
     }
 
     FT_Outline_Translate(&ftglyph->outline,

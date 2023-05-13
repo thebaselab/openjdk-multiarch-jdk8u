@@ -32,21 +32,21 @@
  * @summary Support the "certificate_authorities" extension
  * @library /javax/net/ssl/templates
  * @run main/othervm CertificateAuthorities
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=false
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=false
  *     CertificateAuthorities
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=true
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=true
  *     CertificateAuthorities
  *
  * @run main/othervm CertificateAuthorities NEED_CLIENT_AUTH
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=false
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=false
  *     CertificateAuthorities NEED_CLIENT_AUTH
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=true
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=true
  *     CertificateAuthorities NEED_CLIENT_AUTH
  *
  * @run main/othervm CertificateAuthorities WANT_CLIENT_AUTH
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=false
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=false
  *     CertificateAuthorities WANT_CLIENT_AUTH
- * @run main/othervm -Djdk.tls.client.indicateCertificateAuthorities=true
+ * @run main/othervm -Djdk.tls.client.enableCAExtension=true
  *     CertificateAuthorities WANT_CLIENT_AUTH
  */
 

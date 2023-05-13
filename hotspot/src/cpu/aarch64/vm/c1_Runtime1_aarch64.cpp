@@ -143,9 +143,9 @@ int StubAssembler::call_RT(Register oop_result1, Register metadata_result, addre
 int StubAssembler::call_RT(Register oop_result1, Register metadata_result, address entry, Register arg1, Register arg2, Register arg3) {
   // if there is any conflict use the stack
   if (arg1 == c_rarg2 || arg1 == c_rarg3 ||
-      arg2 == c_rarg1 || arg1 == c_rarg3 ||
-      arg3 == c_rarg1 || arg1 == c_rarg2) {
-    stp(arg3, arg2, Address(pre(sp, 2 * wordSize)));
+      arg2 == c_rarg1 || arg2 == c_rarg3 ||
+      arg3 == c_rarg1 || arg3 == c_rarg2) {
+    stp(arg3, arg2, Address(pre(sp, -2 * wordSize)));
     stp(arg1, zr, Address(pre(sp, -2 * wordSize)));
     ldp(c_rarg1, zr, Address(post(sp, 2 * wordSize)));
     ldp(c_rarg3, c_rarg2, Address(post(sp, 2 * wordSize)));
@@ -263,7 +263,7 @@ static OopMap* save_live_registers(StubAssembler* sasm,
                                    bool save_fpu_registers = true) {
   __ block_comment("save_live_registers");
 
-  __ push(RegSet::range(r0, r29), sp);         // integer registers except lr & sp
+  __ push(RegSet::range(r0, r29) R18_RESERVED_ONLY(- r18), sp);         // integer registers except lr & sp
 
   if (save_fpu_registers) {
     for (int i = 30; i >= 0; i -= 2)
@@ -285,7 +285,7 @@ static void restore_live_registers(StubAssembler* sasm, bool restore_fpu_registe
     __ add(sp, sp, 32 * wordSize);
   }
 
-  __ pop(RegSet::range(r0, r29), sp);
+  __ pop(RegSet::range(r0, r29) R18_RESERVED_ONLY(- r18), sp);
 }
 
 static void restore_live_registers_except_r0(StubAssembler* sasm, bool restore_fpu_registers = true)  {
@@ -299,7 +299,7 @@ static void restore_live_registers_except_r0(StubAssembler* sasm, bool restore_f
   }
 
   __ ldp(zr, r1, Address(__ post(sp, 16)));
-  __ pop(RegSet::range(r2, r29), sp);
+  __ pop(RegSet::range(r2, r29) R18_RESERVED_ONLY(- r18), sp);
 }
 
 

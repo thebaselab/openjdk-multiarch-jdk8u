@@ -60,8 +60,8 @@
 
 /* defines for UNIX platforms *************************************************/
 
-#ifndef H_P11MD
-#define H_P11MD
+#ifndef _P11_MD_H
+#define _P11_MD_H 1
 
 #define CK_PTR *
 #define CK_DEFINE_FUNCTION(returnType, name) returnType name
@@ -92,4 +92,4 @@ struct ModuleData {
 };
 typedef struct ModuleData ModuleData;
 
-#endif //H_P11MD
+#endif  /* _P11_MD_H */

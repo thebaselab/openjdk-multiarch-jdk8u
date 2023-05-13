@@ -481,6 +481,7 @@ void JfrThreadSampler::run() {
 
   initialize_thread_local_storage();
   record_stack_base_and_size();
+  init_wx();
 
   _sampler_thread = this;
 

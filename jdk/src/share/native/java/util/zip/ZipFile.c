@@ -147,6 +147,14 @@ Java_java_util_zip_ZipFile_startsWithLOC(JNIEnv *env, jclass cls, jlong zfile)
     return zip->locsig;
 }
 
+JNIEXPORT jint JNICALL
+Java_java_util_zip_ZipFile_getManifestNum(JNIEnv *env, jclass cls, jlong zfile)
+{
+    jzfile *zip = jlong_to_ptr(zfile);
+
+    return zip->manifestNum;
+}
+
 JNIEXPORT void JNICALL
 Java_java_util_zip_ZipFile_close(JNIEnv *env, jclass cls, jlong zfile)
 {
@@ -393,3 +401,30 @@ Java_java_util_zip_ZipFile_getZipMessage(JNIEnv *env, jclass cls, jlong zfile)
     }
     return JNU_NewStringPlatform(env, msg);
 }
+
+JNIEXPORT jbyteArray JNICALL
+Java_java_util_zip_ZipFile_getCentralDirectoryBytes(JNIEnv *env,
+                                         jclass cls, jlong zfile)
+{
+    jzfile *zip = jlong_to_ptr(zfile);
+    jbyteArray jba = NULL;
+
+    jlong offset = 0;
+    jlong length = 0;
+    unsigned char* buf = NULL;
+
+    ZIP_ReadCentralDirectory(zip, &buf, &offset, &length);
+
+    if (length <=0 || (jba = (*env)->NewByteArray(env, length)) == NULL) {
+      const char *msg = "failed to get central directory";
+      ThrowZipException(env, msg);
+      ZIP_FreeCentralDirectory(zip, &buf);
+      return NULL;
+    }
+    (*env)->SetByteArrayRegion(env, jba, offset, length, (jbyte*)buf);
+
+    ZIP_FreeCentralDirectory(zip, &buf);
+
+    return jba;
+}
+

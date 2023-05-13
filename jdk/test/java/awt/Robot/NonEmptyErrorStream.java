@@ -34,6 +34,7 @@ import jdk.testlibrary.ProcessTools;
 /**
  * @test
  * @bug 8226806
+ * @key headful
  * @library /lib/testlibrary
  * @summary checks for unexpected output in stderr and stdout
  */

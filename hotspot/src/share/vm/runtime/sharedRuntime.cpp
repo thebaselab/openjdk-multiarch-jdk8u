@@ -724,6 +724,7 @@ address SharedRuntime::compute_compiled_exc_handler(nmethod* nm, address ret_pc,
 #endif
 
   if (t == NULL) {
+    ttyLocker ttyl;
     tty->print_cr("MISSING EXCEPTION HANDLER for pc " INTPTR_FORMAT " and handler bci %d", ret_pc, handler_bci);
     tty->print_cr("   Exception:");
     exception->print();
@@ -2658,7 +2659,7 @@ void AdapterHandlerLibrary::create_native_wrapper(methodHandle method) {
     if (buf != NULL) {
       CodeBuffer buffer(buf);
       struct { double data[20]; } locs_buf;
-      buffer.insts()->initialize_shared_locs((relocInfo*)&locs_buf, sizeof(locs_buf) / (sizeof(relocInfo)));
+      buffer.insts()->initialize_shared_locs((relocInfo*)&locs_buf, sizeof(locs_buf) / sizeof(relocInfo));
       MacroAssembler _masm(&buffer);
 
       // Fill in the signature array, for the calling-convention call.
@@ -3126,7 +3127,7 @@ frame SharedRuntime::look_for_reserved_stack_annotated_method(JavaThread* thread
 #if INCLUDE_CRS
 JRT_ENTRY(void, SharedRuntime::first_call_interpreter_entry(JavaThread *thread, Method *method))
   assert(method->was_used(), "Interpreted method must be marked as used by corresponding runtime stub");
-  if (UseCRS) {
+  if (ConnectedRuntime::is_CRS_in_use()) {
     ConnectedRuntime::notify_first_call(thread, method);
   }
 JRT_END

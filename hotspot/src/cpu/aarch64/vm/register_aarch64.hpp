@@ -200,6 +200,8 @@ class ConcreteRegisterImpl : public AbstractRegisterImpl {
   static const int max_fpr;
 };
 
+class RegSetIterator;
+
 // A set of registers
 class RegSet {
   uint32_t _bitset;
@@ -224,6 +226,11 @@ public:
 
   RegSet &operator+=(const RegSet aSet) {
     *this = *this + aSet;
+    return *this;
+  }
+
+  RegSet &operator-=(const RegSet aSet) {
+    *this = *this - aSet;
     return *this;
   }
 
@@ -253,6 +260,49 @@ public:
   }
 
   uint32_t bits() const { return _bitset; }
+
+private:
+
+  Register first() {
+    uint32_t first = _bitset & -_bitset;
+    return first ? as_Register(exact_log2(first)) : noreg;
+  }
+
+public:
+
+  friend class RegSetIterator;
+
+  RegSetIterator begin();
 };
+
+class RegSetIterator {
+  RegSet _regs;
+
+public:
+  RegSetIterator(RegSet x): _regs(x) {}
+  RegSetIterator(const RegSetIterator& mit) : _regs(mit._regs) {}
+
+  RegSetIterator& operator++() {
+    Register r = _regs.first();
+    if (r != noreg)
+      _regs -= r;
+    return *this;
+  }
+
+  bool operator==(const RegSetIterator& rhs) const {
+    return _regs.bits() == rhs._regs.bits();
+  }
+  bool operator!=(const RegSetIterator& rhs) const {
+    return ! (rhs == *this);
+  }
+
+  Register operator*() {
+    return _regs.first();
+  }
+};
+
+inline RegSetIterator RegSet::begin() {
+  return RegSetIterator(*this);
+}
 
 #endif // CPU_AARCH64_VM_REGISTER_AARCH64_HPP

@@ -30,6 +30,7 @@ import java.util.jar.JarFile;
 import sun.misc.JarIndex;
 import sun.misc.InvalidJarIndexException;
 import sun.net.www.ParseUtil;
+import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.jar.JarEntry;
 import java.util.jar.Manifest;
@@ -56,6 +57,9 @@ import java.security.cert.Certificate;
 import sun.misc.FileURLMapper;
 import sun.net.util.URLUtil;
 import sun.security.action.GetPropertyAction;
+
+import com.azul.tooling.in.Tooling;
+import com.azul.tooling.in.JarLoadEvent;
 
 /**
  * This class is used to maintain a search path of URLs for loading classes
@@ -750,7 +754,14 @@ public class URLClassPath {
                      * in a hurry.
                      */
                     JarURLConnection juc = (JarURLConnection)uc;
+
+                    boolean firstLoad = jarfile == null;
+
                     jarfile = JarLoader.checkJar(juc.getJarFile());
+
+                    if (firstLoad && JarLoadEvent.isEnabled()) {
+                        Tooling.notifyEvent(JarLoadEvent.jarLoadEvent(url, jarfile));
+                    }
                 }
             } catch (Exception e) {
                 return null;
@@ -931,18 +942,24 @@ public class URLClassPath {
         }
 
         private JarFile getJarFile(URL url) throws IOException {
+            JarFile result = null;
             // Optimize case where url refers to a local jar file
             if (isOptimizable(url)) {
                 FileURLMapper p = new FileURLMapper (url);
                 if (!p.exists()) {
                     throw new FileNotFoundException(p.getPath());
                 }
-                return checkJar(new JarFile(p.getPath()));
+                result = checkJar(new JarFile(p.getPath()));
+            } else {
+                URLConnection uc = getBaseURL().openConnection();
+                uc.setRequestProperty(USER_AGENT_JAVA_VERSION, JAVA_VERSION);
+                JarFile jarFile = ((JarURLConnection)uc).getJarFile();
+                result = checkJar(jarFile);
             }
-            URLConnection uc = getBaseURL().openConnection();
-            uc.setRequestProperty(USER_AGENT_JAVA_VERSION, JAVA_VERSION);
-            JarFile jarFile = ((JarURLConnection)uc).getJarFile();
-            return checkJar(jarFile);
+            if (JarLoadEvent.isEnabled()) {
+                Tooling.notifyEvent(JarLoadEvent.jarLoadEvent(url, result));
+            }
+            return result;
         }
 
         /*
@@ -980,6 +997,7 @@ public class URLClassPath {
             }
 
             return new Resource() {
+                private Exception dataError = null;
                 public String getName() { return name; }
                 public URL getURL() { return url; }
                 public URL getCodeSourceURL() { return csu; }
@@ -995,6 +1013,18 @@ public class URLClassPath {
                     { return entry.getCertificates(); };
                 public CodeSigner[] getCodeSigners()
                     { return entry.getCodeSigners(); };
+                public Exception getDataError()
+                    { return dataError; }
+                public byte[] getBytes() throws IOException {
+                    byte[] bytes = super.getBytes();
+                    CRC32 crc32 = new CRC32();
+                    crc32.update(bytes);
+                    if (crc32.getValue() != entry.getCrc()) {
+                        dataError = new IOException(
+                                "CRC error while extracting entry from JAR file");
+                    }
+                    return bytes;
+                }
             };
         }
 

@@ -643,6 +643,11 @@ void MacroAssembler::call_VM_base(Register oop_result,
   // do the call, remove parameters
   MacroAssembler::call_VM_leaf_base(entry_point, number_of_arguments, &l);
 
+  // lr could be poisoned with PAC signature during throw_pending_exception
+  // if it was tail-call optimized by compiler, since lr is not callee-saved
+  // reload it with proper value
+  adr(lr, l);
+
   // reset last Java frame
   // Only interpreter should have to clear fp
   reset_last_Java_frame(true);
@@ -1261,7 +1266,7 @@ void MacroAssembler::verify_oop(Register reg, const char* s) {
   stp(rscratch2, lr, Address(pre(sp, -2 * wordSize)));
 
   mov(r0, reg);
-  mov(rscratch1, (address)b);
+  movptr(rscratch1, (uintptr_t)(address)b);
 
   // call indirectly to solve generation ordering problem
   lea(rscratch2, ExternalAddress(StubRoutines::verify_oop_subroutine_entry_address()));
@@ -1297,7 +1302,7 @@ void MacroAssembler::verify_oop_addr(Address addr, const char* s) {
   } else {
     ldr(r0, addr);
   }
-  mov(rscratch1, (address)b);
+  movptr(rscratch1, (uintptr_t)(address)b);
 
   // call indirectly to solve generation ordering problem
   lea(rscratch2, ExternalAddress(StubRoutines::verify_oop_subroutine_entry_address()));
@@ -1903,11 +1908,11 @@ void MacroAssembler::increment(Address dst, int value)
 
 
 void MacroAssembler::pusha() {
-  push(0x7fffffff, sp);
+  push(RegSet::range(r0, r30) R18_RESERVED_ONLY(-r18), sp);
 }
 
 void MacroAssembler::popa() {
-  pop(0x7fffffff, sp);
+  pop(RegSet::range(r0, r30) R18_RESERVED_ONLY(-r18), sp);
 }
 
 // Push lots of registers in the bit set supplied.  Don't push sp.
@@ -1992,8 +1997,8 @@ void MacroAssembler::verify_heapbase(const char* msg) {
 void MacroAssembler::stop(const char* msg) {
   address ip = pc();
   pusha();
-  mov(c_rarg0, (address)msg);
-  mov(c_rarg1, (address)ip);
+  movptr(c_rarg0, (uintptr_t)(address)msg);
+  movptr(c_rarg1, (uintptr_t)(address)ip);
   mov(c_rarg2, sp);
   mov(c_rarg3, CAST_FROM_FN_PTR(address, MacroAssembler::debug64));
   blr(c_rarg3);
@@ -2006,6 +2011,7 @@ void MacroAssembler::warn(const char* msg) {
   mov(lr, CAST_FROM_FN_PTR(address, warning));
   blr(lr);
   popa();
+
 }
 
 // If a constant does not fit in an immediate field, generate some
@@ -2319,37 +2325,38 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
       findpc(pc);
       tty->cr();
 #endif
-      tty->print_cr(" r0 = 0x%016" PRIx64, regs[0]);
-      tty->print_cr(" r1 = 0x%016" PRIx64, regs[1]);
-      tty->print_cr(" r2 = 0x%016" PRIx64, regs[2]);
-      tty->print_cr(" r3 = 0x%016" PRIx64, regs[3]);
-      tty->print_cr(" r4 = 0x%016" PRIx64, regs[4]);
-      tty->print_cr(" r5 = 0x%016" PRIx64, regs[5]);
-      tty->print_cr(" r6 = 0x%016" PRIx64, regs[6]);
-      tty->print_cr(" r7 = 0x%016" PRIx64, regs[7]);
-      tty->print_cr(" r8 = 0x%016" PRIx64, regs[8]);
-      tty->print_cr(" r9 = 0x%016" PRIx64, regs[9]);
-      tty->print_cr("r10 = 0x%016" PRIx64, regs[10]);
-      tty->print_cr("r11 = 0x%016" PRIx64, regs[11]);
-      tty->print_cr("r12 = 0x%016" PRIx64, regs[12]);
-      tty->print_cr("r13 = 0x%016" PRIx64, regs[13]);
-      tty->print_cr("r14 = 0x%016" PRIx64, regs[14]);
-      tty->print_cr("r15 = 0x%016" PRIx64, regs[15]);
-      tty->print_cr("r16 = 0x%016" PRIx64, regs[16]);
-      tty->print_cr("r17 = 0x%016" PRIx64, regs[17]);
-      tty->print_cr("r18 = 0x%016" PRIx64, regs[18]);
-      tty->print_cr("r19 = 0x%016" PRIx64, regs[19]);
-      tty->print_cr("r20 = 0x%016" PRIx64, regs[20]);
-      tty->print_cr("r21 = 0x%016" PRIx64, regs[21]);
-      tty->print_cr("r22 = 0x%016" PRIx64, regs[22]);
-      tty->print_cr("r23 = 0x%016" PRIx64, regs[23]);
-      tty->print_cr("r24 = 0x%016" PRIx64, regs[24]);
-      tty->print_cr("r25 = 0x%016" PRIx64, regs[25]);
-      tty->print_cr("r26 = 0x%016" PRIx64, regs[26]);
-      tty->print_cr("r27 = 0x%016" PRIx64, regs[27]);
-      tty->print_cr("r28 = 0x%016" PRIx64, regs[28]);
-      tty->print_cr("r30 = 0x%016" PRIx64, regs[30]);
-      tty->print_cr("r31 = 0x%016" PRIx64, regs[31]);
+      int i = 0;
+      tty->print_cr(" r0 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r1 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r2 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r3 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r4 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r5 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r6 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r7 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r8 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr(" r9 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r10 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r11 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r12 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r13 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r14 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r15 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r16 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r17 = 0x%016" PRIx64, regs[i++]);
+      NOT_R18_RESERVED(tty->print_cr("r18 = 0x%016" PRIx64, regs[i++]);)
+      tty->print_cr("r19 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r20 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r21 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r22 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r23 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r24 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r25 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r26 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r27 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r28 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r30 = 0x%016" PRIx64, regs[i++]);
+      tty->print_cr("r31 = 0x%016" PRIx64, regs[i++]);
       BREAKPOINT;
     }
     ThreadStateTransition::transition(thread, _thread_in_vm, saved_state);
@@ -2361,8 +2368,16 @@ void MacroAssembler::debug64(char* msg, int64_t pc, int64_t regs[])
   }
 }
 
+RegSet MacroAssembler::call_clobbered_registers() {
+  RegSet regs = RegSet::range(r0, r17) - RegSet::of(rscratch1, rscratch2);
+#ifndef R18_RESERVED
+  regs += r18;
+#endif
+  return regs;
+}
+
 void MacroAssembler::push_call_clobbered_registers() {
-  push(RegSet::range(r0, r18) - RegSet::of(rscratch1, rscratch2) BSD_ONLY(- r18), sp);
+  push(call_clobbered_registers(), sp);
 
   // Push v0-v7, v16-v31.
   for (int i = 30; i >= 0; i -= 2) {
@@ -2382,7 +2397,7 @@ void MacroAssembler::pop_call_clobbered_registers() {
     }
   }
 
-  pop(RegSet::range(r0, r18) - RegSet::of(rscratch1, rscratch2) BSD_ONLY(- r18), sp);
+  pop(call_clobbered_registers() - RegSet::of(rscratch1, rscratch2), sp);
 }
 
 void MacroAssembler::push_CPU_state(bool save_vectors) {

@@ -92,7 +92,7 @@ PROFILE_1_LIBRARIES := \
     zip
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
-    PROFILE_1_LIBRARIES += msvcrt100
+    PROFILE_1_LIBRARIES += msvcr100
 endif
 
 PROFILE_1_LIBRARIES := $(addprefix $(LIBRARY_PREFIX), $(PROFILE_1_LIBRARIES))
@@ -224,6 +224,11 @@ PROFILE_1_JRE_JAR_FILES := \
     security/policy/unlimited/US_export_policy.jar \
     security/policy/limited/local_policy.jar \
     security/policy/unlimited/local_policy.jar
+
+ifeq ($(ENABLE_CRS), true)
+     PROFILE_1_JRE_JAR_FILES += \
+         ext/crs-agent.jar
+endif
 
 
 PROFILE_2_JRE_BIN_FILES := \
@@ -390,7 +395,8 @@ FULL_JRE_LIB_FILES += \
     oblique-fonts/fonts.dir \
     psfont.properties.ja \
     psfontj2d.properties \
-    sound.properties
+    sound.properties \
+    cat.jar
 
 FULL_JRE_OTHER_FILES := \
     man/ja_JP.UTF-8/man1/java.1 \
@@ -422,5 +428,6 @@ FULL_JRE_JAR_FILES := \
     ext/dnsns.jar \
     ext/nashorn.jar \
     ext/zipfs.jar \
-    jfr.jar
+    jfr.jar \
+    cat.jar
 

@@ -532,9 +532,10 @@ abstract public class TestScaffold extends TargetAdapter {
                         Location loc = ((Locatable)event).location();
                         ReferenceType rt = loc.declaringType();
                         String name = rt.name();
-                        if (name.startsWith("java.") &&
-                                       !name.startsWith("sun.") &&
-                                       !name.startsWith("com.")) {
+                        if (name.startsWith("java.")
+                            || name.startsWith("sun.")
+                            || name.startsWith("com.")
+                            || name.startsWith("jdk.")) {
                             if (mainStartClass != null) {
                                 redefine(mainStartClass);
                             }
@@ -752,6 +753,7 @@ abstract public class TestScaffold extends TargetAdapter {
         sr.addClassExclusionFilter("com.oracle.*");
         sr.addClassExclusionFilter("oracle.*");
         sr.addClassExclusionFilter("jdk.internal.*");
+        sr.addClassExclusionFilter("com.azul.tooling.*");
         sr.addCountFilter(1);
         sr.enable();
         StepEvent retEvent = (StepEvent)waitForRequestedEvent(sr);

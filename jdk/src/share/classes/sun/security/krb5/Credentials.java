@@ -34,6 +34,8 @@ package sun.security.krb5;
 import sun.security.krb5.internal.*;
 import sun.security.krb5.internal.ccache.CredentialsCache;
 import sun.security.krb5.internal.crypto.EType;
+import sun.security.util.SecurityProperties;
+
 import java.io.IOException;
 import java.util.Date;
 import java.util.Locale;
@@ -63,6 +65,10 @@ public class Credentials {
     private static CredentialsCache cache;
     static boolean alreadyLoaded = false;
     private static boolean alreadyTried = false;
+
+    public static final boolean S4U2PROXY_ACCEPT_NON_FORWARDABLE
+            = "true".equalsIgnoreCase(SecurityProperties.privilegedGetOverridable(
+                    "jdk.security.krb5.s4u2proxy.acceptNonForwardableServiceTicket"));
 
     private Credentials proxy = null;
 
@@ -477,7 +483,7 @@ public class Credentials {
      *
      * @param service the name of service principal using format
      * components@realm
-     * @param ccreds client's initial credential.
+     * @param initCreds client's initial credential.
      * @exception IOException if an error occurs in reading the credentials
      * cache
      * @exception KrbException if an error occurs specific to Kerberos
@@ -485,21 +491,21 @@ public class Credentials {
      */
 
     public static Credentials acquireServiceCreds(String service,
-                                                  Credentials ccreds)
+                                                  Credentials initCreds)
         throws KrbException, IOException {
-        return CredentialsUtil.acquireServiceCreds(service, ccreds);
+        return CredentialsUtil.acquireServiceCreds(service, initCreds);
     }
 
     public static Credentials acquireS4U2selfCreds(PrincipalName user,
-            Credentials ccreds) throws KrbException, IOException {
-        return CredentialsUtil.acquireS4U2selfCreds(user, ccreds);
+            Credentials middleTGT) throws KrbException, IOException {
+        return CredentialsUtil.acquireS4U2selfCreds(user, middleTGT);
     }
 
     public static Credentials acquireS4U2proxyCreds(String service,
-            Ticket second, PrincipalName client, Credentials ccreds)
+            Credentials userCreds, PrincipalName client, Credentials middleTGT)
         throws KrbException, IOException {
         return CredentialsUtil.acquireS4U2proxyCreds(
-                service, second, client, ccreds);
+                service, userCreds, client, middleTGT);
     }
 
     public CredentialsCache getCache() {

@@ -229,8 +229,12 @@ typedef struct jzfile {   /* Zip file */
     char **metanames;     /* array of meta names (may have null names) */
     jint metacurrent;     /* the next empty slot in metanames array */
     jint metacount;       /* number of slots in metanames array */
+    jint manifestNum;     /* number of META-INF/MANIFEST.MF, case insensitive */
     jlong lastModified;   /* last modified time */
     jlong locpos;         /* position of first LOC header (usually 0) */
+
+    jlong cd_pos;       /* beginning address of the CEN & ENDHDR */
+    jlong cd_len;       /* length (in bytes) */
 } jzfile;
 
 /*
@@ -272,4 +276,6 @@ jint ZIP_Read(jzfile *zip, jzentry *entry, jlong pos, void *buf, jint len);
 void ZIP_FreeEntry(jzfile *zip, jzentry *ze);
 jlong ZIP_GetEntryDataOffset(jzfile *zip, jzentry *entry);
 jzentry * ZIP_GetEntry2(jzfile *zip, char *name, jint ulen, jboolean addSlash);
+void JNICALL ZIP_ReadCentralDirectory(jzfile *zip, unsigned char **buf, jlong *offset, jlong *length);
+void JNICALL ZIP_FreeCentralDirectory(jzfile *zip, unsigned char **buf);
 #endif /* !_ZIP_H_ */

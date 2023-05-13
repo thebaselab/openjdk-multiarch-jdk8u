@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2022, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -27,28 +27,6 @@
 -include $(CUSTOM_MAKE_DIR)/lib/CoreLibraries.gmk
 
 WIN_VERIFY_LIB := $(JDK_OUTPUTDIR)/objs/libverify/verify.lib
-
-##########################################################################################
-
-ifeq ($(OPENJDK_TARGET_OS), linux)
-#    MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libtinyiconv/mapfile-vers, \
-BUILD_LIBTINYICONV_SRC := iconv.cpp
-$(eval $(call SetupNativeCompilation,BUILD_LIBTINYICONV, \
-    LIBRARY := tinyiconv, \
-    OUTPUT_DIR := $(INSTALL_LIBRARIES_HERE), \
-    SRC := $(JDK_TOPDIR)/src/share/tinyiconv, \
-    LANG := C++, \
-    OPTIMIZATION := LOW, \
-    CFLAGS := $(CXXFLAGS_JDKLIB) \
-        -I$(JDK_TOPDIR)/src/share/tinyiconv, \
-    LDFLAGS := $(LDFLAGS_JDKLIB) $(LDFLAGS_CXX_JDK) \
-        $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_SUFFIX_posix := $(LIBCXX) -lc, \
-    OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libtinyiconv, \
-    DEBUG_SYMBOLS := true))
-
-BUILD_LIBRARIES += $(BUILD_LIBTINYICONV)
-endif
 
 ##########################################################################################
 
@@ -99,7 +77,7 @@ else
       LANG := C, \
       CFLAGS := $(CFLAGS_JDKLIB) \
           -I$(JDK_TOPDIR)/src/share/native/java/lang/fdlibm/include, \
-      LDFLAGS := -nostdlib -r -arch arm64, \
+      LDFLAGS := -nostdlib -r $(LDFLAGS_JDKLIB), \
       OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libfdlibm, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
@@ -288,6 +266,10 @@ ifeq ($(USE_EXTERNAL_LIBZ), true)
   LIBZIP_EXCLUDES += zlib
 else
   ZLIB_CPPFLAGS := -I$(JDK_TOPDIR)/src/share/native/java/util/zip/zlib
+  ifeq ($(OPENJDK_TARGET_OS), macosx)
+    ZLIB_CPPFLAGS += -DHAVE_UNISTD_H
+  endif
+  ZLIB_LDFLAGS_SUFFIX_linux := -ldl -lpthread
 endif
 
 BUILD_LIBZIP_REORDER :=
@@ -321,7 +303,7 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBZIP, \
     LDFLAGS_windows := -export:ZIP_Open -export:ZIP_Close -export:ZIP_FindEntry \
         -export:ZIP_ReadEntry -export:ZIP_GetNextEntry -export:ZIP_CRC32 jvm.lib \
         $(WIN_JAVA_LIB), \
-    LDFLAGS_SUFFIX_linux := -ljvm -ljava $(LIBZ), \
+    LDFLAGS_SUFFIX_linux := $(ZLIB_LDFLAGS_SUFFIX_linux) -ljvm -ljava $(LIBZ), \
     LDFLAGS_SUFFIX_solaris := -ljvm -ljava $(LIBZ) -lc, \
     LDFLAGS_SUFFIX_aix := -ljvm -ljava $(LIBZ),\
     LDFLAGS_SUFFIX_macosx := $(LIBZ) -ljava -ljvm, \
@@ -407,6 +389,9 @@ ifeq ($(OPENJDK_TARGET_OS), windows)
   LIBJLI_CFLAGS := $(filter-out -MD, $(LIBJLI_CFLAGS))
   # Supply the name of the C runtime lib.
   LIBJLI_CFLAGS += -DMSVCR_DLL_NAME='"$(notdir $(MSVCR_DLL))"'
+  ifneq ($(VCRUNTIME_1_DLL), )
+    LIBJLI_CFLAGS += -DVCRUNTIME_1_DLL_NAME='"$(notdir $(VCRUNTIME_1_DLL))"'
+  endif
   ifneq ($(MSVCP_DLL), )
     LIBJLI_CFLAGS += -DMSVCP_DLL_NAME='"$(notdir $(MSVCP_DLL))"'
   endif
@@ -429,8 +414,11 @@ endif #WINDOWS
 # Append defines depending on target platform
 LIBJLI_CFLAGS += $(OPENJDK_TARGET_CPU_JLI_CFLAGS)
 
+LIBJLI_CFLAGS += -DLIBC=\"$(OPENJDK_TARGET_LIBC)\"
+
 ifeq ($(OPENJDK_TARGET_OS), macosx)
   LIBJLI_CFLAGS += -DPACKAGE_PATH=\"$(PACKAGE_PATH)\"
+  LIBJLI_CFLAGS += -mmacosx-version-min=$(MACOSX_VERSION_MIN)
 endif
 
 ifneq ($(USE_EXTERNAL_LIBZ), true)
@@ -443,6 +431,9 @@ ifneq ($(USE_EXTERNAL_LIBZ), true)
       zadler32.c \
       zcrc32.c \
       zutil.c
+  ifeq ($(OPENJDK_TARGET_OS), linux)
+    BUILD_LIBJLI_FILES += zinit.c
+  endif
 endif
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
@@ -464,9 +455,9 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBJLI, \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
     LDFLAGS_linux := $(call SET_SHARED_LIBRARY_ORIGIN,/..), \
     LDFLAGS_solaris := $(call SET_SHARED_LIBRARY_ORIGIN,/..), \
-    LDFLAGS_macosx := -framework Foundation -framework Security, \
+    LDFLAGS_macosx := -framework Cocoa -framework Security -framework ApplicationServices -mmacosx-version-min=$(MACOSX_VERSION_MIN), \
     LDFLAGS_SUFFIX_solaris := $(LIBZ) $(LIBDL) -lc, \
-    LDFLAGS_SUFFIX_linux := $(LIBZ) $(LIBDL) -lc -lpthread, \
+    LDFLAGS_SUFFIX_linux := $(LIBZ) $(LIBDL) -lc -ldl -lpthread, \
     LDFLAGS_SUFFIX_aix := $(LIBZ) $(LIBDL),\
     LDFLAGS_SUFFIX_macosx := $(LIBZ), \
     LDFLAGS_SUFFIX_windows := \
@@ -525,7 +516,7 @@ else ifeq ($(OPENJDK_TARGET_OS), macosx)
       LANG := C, \
       OPTIMIZATION := HIGH, \
       CFLAGS := $(CFLAGS_JDKLIB) $(LIBJLI_CFLAGS), \
-      LDFLAGS := -nostdlib -r, \
+      LDFLAGS := $(LDFLAGS_JDKLIB) -nostdlib -r -mmacosx-version-min=$(MACOSX_VERSION_MIN), \
       OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/libjli_static, \
       DEBUG_SYMBOLS := $(DEBUG_ALL_BINARIES)))
 
@@ -565,7 +556,6 @@ $(eval $(call SetupNativeCompilation,BUILD_LIBNPT, \
     MAPFILE := $(JDK_TOPDIR)/make/mapfiles/libnpt/mapfile-vers, \
     LDFLAGS := $(LDFLAGS_JDKLIB) \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
-    LDFLAGS_linux := -ltinyiconv, \
     LDFLAGS_macosx := -liconv, \
     LDFLAGS_SUFFIX_windows := -export:nptInitialize -export:nptTerminate, \
     LDFLAGS_SUFFIX_solaris := -lc, \

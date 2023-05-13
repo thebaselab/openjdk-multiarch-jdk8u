@@ -50,7 +50,6 @@
 # include <setjmp.h>
 # ifdef __APPLE__
 #  include <mach/mach_time.h>
-#  include <sys/mman.h>
 # endif
 #endif
 
@@ -347,7 +346,7 @@ class os: AllStatic {
   // are passed.
   static void   pretouch_memory(char* start, char* end);
 
-  enum ProtType { MEM_PROT_NONE, MEM_PROT_READ, MEM_PROT_RW, MEM_PROT_RWX, MEM_PROT_RX };
+  enum ProtType { MEM_PROT_NONE, MEM_PROT_READ, MEM_PROT_RW, MEM_PROT_RWX };
   static bool   protect_memory(char* addr, size_t bytes, ProtType prot,
                                bool is_committed = true);
 
@@ -476,7 +475,7 @@ class os: AllStatic {
   // need special-case handling of the primordial thread if it attaches
   // to the VM.
   static bool is_primordial_thread(void)
-#if defined(_WINDOWS) //|| defined(BSD)
+#if defined(_WINDOWS) || defined(BSD)
     // No way to identify the primordial thread.
     { return false; }
 #else
@@ -964,9 +963,6 @@ class os: AllStatic {
     bool _done;
   };
 
-  static address GLOBAL_CODE_CACHE_ADDR;
-  static uintptr_t GLOBAL_CODE_CACHE_DIFF;
-  static uint32_t GLOBAL_CODE_CACHE_SIZE;
   // If the JVM is running in W^X mode, enable write or execute access to
   // writeable and executable pages. No-op otherwise.
   static inline void current_thread_enable_wx(WXMode mode) {

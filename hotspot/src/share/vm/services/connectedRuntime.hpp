@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 Azul Systems, Inc.  All Rights Reserved.
+ * Copyright 2019-2021 Azul Systems, Inc.  All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it under
@@ -33,38 +33,47 @@ class CRSToJavaCallEvent;
 class CrsMessage;
 
 class ConnectedRuntime : public AllStatic {
+// VS compilation...
+//   error C2248: 'ConnectedRuntime::_log_level' : cannot access private member declared in class 'ConnectedRuntime'
+WINDOWS_ONLY(protected:)
+
   // indicates the native CRS event is pending to be sent to Java layer
   static volatile bool _should_notify;
+  // is set to true when engage method is called so it's possible
+  // to schedule native to java events
+  static volatile bool _crs_engaged;
   // is set to true when java CRS agent has been instantiated so it's possible
   // to invoke callback methods
   static volatile bool _is_init;
 
   static Klass *_agent_klass;
+  static Klass *_callback_listener;
 
   typedef enum { CRS_LOG_LEVEL_TRACE, CRS_LOG_LEVEL_DEBUG, CRS_LOG_LEVEL_INFO, CRS_LOG_LEVEL_WARNING, CRS_LOG_LEVEL_ERROR, CRS_LOG_LEVEL_OFF, CRS_LOG_LEVEL_NOT_SET } LogLevel;
 
   static LogLevel _log_level;
 
-  static void schedule(CRSEvent *event);
+  static int _delayInitiation;
+
+  static void schedule(CRSEvent *event, bool has_callback);
   static void parse_options();
   static void parse_arguments(const char *arguments, bool needs_unlock);
-  static void parse_log_level(LogLevel *var, const char *value, int value_len);
+  static void parse_log_level(LogLevel *var, const char *value, size_t value_len);
+  static void clear_event_queue();
+  static void flush_events(bool do_process, TRAPS);
 public:
   static void init();
   static void engage(TRAPS);
   static void disable(const char *msg, bool need_safepoint);
 
-  static void notify_class_load(instanceKlassHandle ikh, u1 const *hash, uintx hash_length, char const *source, TRAPS);
+  static void notify_class_load(instanceKlassHandle ikh, bool is_transformed, u1 const *original_hash, u1 const *hash, uintx hash_length, char const *source, TRAPS);
   static void notify_tojava_call(methodHandle *m);
   static void notify_first_call(JavaThread *thread, Method *m);
-  static void notify_metaspace_eviction(InstanceKlass *ik, Array<Method*>* methods);
-  static void notify_metaspace_eviction(InstanceKlass *ik) {
-    notify_metaspace_eviction(ik, NULL);
-  }
-  static void notify_metaspace_eviction(Method *m);
   static void notify_thread_exit(Thread *thread);
 
   static bool should_notify_java();
+  static bool should_notify_first_call();
+
   static void notify_java(TRAPS);
   static void flush_buffers(bool force, bool and_stop, TRAPS);
 
@@ -72,13 +81,15 @@ public:
   static void assign_trace_id(InstanceKlass *ik);
   static void mark_anonymous(InstanceKlass *ik);
 
+  static void startAgent(TRAPS);
+
+  static bool is_CRS_in_use();
+
   friend class CrsMessage;
   friend class CRSToJavaCallEvent;
+  friend class CRSCommandListenerThread;
+  friend class CRSAgentInitThread;
 };
-
-extern "C" {
-  void JNICALL crs_register_natives(JNIEnv *env, jclass clazz, jclass agent_clazz);
-}
 
 typedef jint crs_traceid;
 #define CRS_INIT_ID(x) ConnectedRuntime::assign_trace_id(x)

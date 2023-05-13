@@ -98,6 +98,9 @@ JAR_LIST := \
     sunmscapi.jar \
     ucrypto.jar \
     #
+ifeq ($(ENABLE_CRS), true)
+    JAR_LIST += ext/crs-agent.jar
+endif
 
 UNSIGNED_JARS := $(wildcard $(addprefix $(JDK_OUTPUTDIR)/jce/unsigned/, $(JAR_LIST)))
 

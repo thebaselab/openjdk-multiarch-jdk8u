@@ -1,0 +1,5 @@
+
+exports jdk.jfr.internal to com.azul.crs.client;
+opens   jdk.jfr.internal to com.azul.crs.client;
+opens   jdk.jfr          to com.azul.crs.client;
+

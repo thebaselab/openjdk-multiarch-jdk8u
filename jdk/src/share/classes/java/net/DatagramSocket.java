@@ -30,6 +30,11 @@ import java.nio.channels.DatagramChannel;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 
+import com.azul.tooling.in.NetConnectionEvent;
+import com.azul.tooling.in.Tooling;
+
+import static java.lang.System.currentTimeMillis;
+
 /**
  * This class represents a socket for sending and receiving datagram packets.
  *
@@ -689,6 +694,11 @@ class DatagramSocket implements java.io.Closeable {
             // Check whether the socket is bound
             if (!isBound())
                 bind(new InetSocketAddress(0));
+
+            if (NetConnectionEvent.isEnabled()) {
+                Tooling.notifyEvent(NetConnectionEvent.udpConnectionEvent(p.getAddress(), p.getPort(),
+                        isConnected() ? getLocalAddress() : null, getLocalPort(), currentTimeMillis(), true));
+            }
             // call the  method to send
             getImpl().send(p);
         }
@@ -810,6 +820,10 @@ class DatagramSocket implements java.io.Closeable {
             // If the security check succeeds, or the datagram is
             // connected then receive the packet
             getImpl().receive(p);
+            if (NetConnectionEvent.isEnabled()) {
+                Tooling.notifyEvent(NetConnectionEvent.udpConnectionEvent(isConnected() ? getLocalAddress() : null,
+                        getLocalPort(), p.getAddress(), p.getPort(), currentTimeMillis(), false));
+            }
             if (explicitFilter && tmp == null) {
                 // packet was not filtered, account for it here
                 checkFiltering(p);

@@ -74,6 +74,8 @@ static void freeCEN(jzfile *);
 #define PATH_MAX 1024
 #endif
 
+#define META_INF_LEN 9 /* "META-INF/".length() */
+
 static jint INITIAL_META_COUNT = 2;   /* initial number of entries in meta name array */
 
 /*
@@ -444,6 +446,25 @@ isMetaName(const char *name, int length)
 }
 
 /*
+ * Check if the bytes represents a name equals to MANIFEST.MF
+ */
+static int
+isManifestName(const char *name, int length)
+{
+    const char *s;
+    if (length != (int)sizeof("MANIFEST.MF") - 1)
+        return 0;
+    for (s = "MANIFEST.MF"; *s != '\0'; s++) {
+        char c = *name++;
+        // Avoid toupper; it's locale-dependent
+        if (c >= 'a' && c <= 'z') c += 'A' - 'a';
+        if (*s != c)
+            return 0;
+    }
+    return 1;
+}
+
+/*
  * Increases the capacity of zip->metanames.
  * Returns non-zero in case of allocation error.
  */
@@ -513,6 +534,7 @@ freeCEN(jzfile *zip)
 {
     free(zip->entries); zip->entries = NULL;
     free(zip->table);   zip->table   = NULL;
+    zip->manifestNum = 0;
     freeMetaNames(zip);
 }
 
@@ -561,11 +583,17 @@ readCEN(jzfile *zip, jint knownTotal)
 
     /* Clear previous zip error */
     zip->msg = NULL;
+    zip->cd_pos = 0;
+    zip->cd_len = 0;
     /* Get position of END header */
     if ((endpos = findEND(zip, endbuf)) == -1)
         return -1; /* no END header or system error */
 
-    if (endpos == 0) return 0;  /* only END header present */
+    if (endpos == 0) { /* only END header present */
+      zip->cd_pos = 0;
+      zip->cd_len = ENDHDR;
+      return 0;
+    }
 
     freeCEN(zip);
    /* Get position and length of central directory */
@@ -666,6 +694,8 @@ readCEN(jzfile *zip, jint knownTotal)
     for (j = 0; j < tablelen; j++)
         table[j] = ZIP_ENDCHAIN;
 
+    zip->manifestNum = 0;
+
     /* Iterate through the entries in the central directory */
     for (i = 0, cp = cenbuf; cp <= cenend - CENHDR; i++, cp += CENSIZE(cp)) {
         /* Following are unsigned 16-bit */
@@ -693,9 +723,12 @@ readCEN(jzfile *zip, jint knownTotal)
             ZIP_FORMAT_ERROR("invalid CEN header (bad header size)");
 
         /* if the entry is metadata add it to our metadata names */
-        if (isMetaName((char *)cp+CENHDR, nlen))
+        if (isMetaName((char *)cp+CENHDR, nlen)) {
+            if (isManifestName((char *)cp+CENHDR+META_INF_LEN, nlen-META_INF_LEN))
+                zip->manifestNum++;
             if (addMetaName(zip, (char *)cp+CENHDR, nlen) != 0)
                 goto Catch;
+        }
 
         /* Record the CEN offset and the name hash in our hash cell. */
         entries[i].cenpos = cenpos + (cp - cenbuf);
@@ -721,6 +754,12 @@ readCEN(jzfile *zip, jint knownTotal)
     if (!zip->usemmap)
 #endif
         free(cenbuf);
+
+    // cd_len is intentionally equals (cenlen + ENDHDR) and not
+    // (cenlen + endhdrlen) as we may assume.
+    // it was done for consistency with ZipFile.src.cen from OpenJDK11
+    zip->cd_pos = cenpos;
+    zip->cd_len = cenlen + ENDHDR;
 
     return cenpos;
 }
@@ -1512,3 +1551,53 @@ ZIP_ReadEntry(jzfile *zip, jzentry *entry, unsigned char *buf, char *entryname)
 
     return JNI_TRUE;
 }
+
+void JNICALL
+ZIP_ReadCentralDirectory(jzfile *zip, unsigned char **buf, jlong *offset, jlong *length)
+{
+#ifdef USE_MMAP
+  if (zip->usemmap && zip->maddr != NULL) {
+    *buf = (char*) zip->maddr + zip->cd_pos - zip->offset;
+    *offset = 0;
+    *length = zip->cd_len;
+    return;
+  }
+#endif
+  ZIP_Lock(zip);
+  if (zip->cd_pos == 0 && zip->cd_len == 0) goto Finally;
+  if (zip->cd_pos == -1) goto Finally;
+
+  *buf = NULL;
+  *offset = 0;
+  *length = zip->cd_len;
+
+  if ((*buf = malloc((size_t)zip->cd_len))==NULL) goto Finally;
+
+  if (readFullyAt(zip->zfd, *buf, *length, zip->cd_pos) == -1) goto Catch;
+
+  ZIP_Unlock(zip);
+  return;
+
+Catch:
+  free(*buf);
+Finally:
+  ZIP_Unlock(zip);
+  *buf = NULL;
+  *offset = -1;
+  *length = -1;
+}
+
+void JNICALL
+ZIP_FreeCentralDirectory(jzfile *zip, unsigned char **buf)
+{
+#ifdef USE_MMAP
+  if (zip->usemmap && zip->maddr <= *buf &&
+      *buf <= ((char*)zip->maddr + zip->mlen)) {
+    *buf = NULL;
+    return;
+  }
+#endif
+  free(*buf);
+  *buf = NULL;
+}
+

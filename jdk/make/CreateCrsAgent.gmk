@@ -41,31 +41,46 @@ include Setup.gmk
 #
 ifeq ($(ENABLE_CRS), true)
 
-  CRSAGENT_JAR_DST := $(JDK_OUTPUTDIR)/lib/crs-agent.jar
+  CRSAGENT_JAR_DST := $(JDK_OUTPUTDIR)/lib/ext/crs-agent.jar
   CRSAGENT_OUTPUTDIR := $(JDK_OUTPUTDIR)/crs
   CRSAGENT_JAR_UNSIGNED := $(CRSAGENT_OUTPUTDIR)/crs-agent.jar
 
   $(CRSAGENT_OUTPUTDIR):
 	mkdir $@
 
-ifeq ($(PREBUILT_CRS_AGENT_URL),)
+ifneq ($(PREBUILT_CRS_AGENT_FILE),)
+  $(CRSAGENT_JAR_UNSIGNED): $(PREBUILT_CRS_AGENT_FILE)
+	$(install-file)
 
-ifeq ($(MVN),)
-    MVN  := mvn
-endif
-
-  $(CRSAGENT_JAR_UNSIGNED): $(CRSAGENT_OUTPUTDIR)
-	$(MVN) package -f $(SRC_ROOT)/crs -P zulu-build -pl z-agent -am -Djar.finalName=crs-agent -Dbuild.bootclasspath=$(JDK_OUTPUTDIR)/classes -Dbuild.output=$(CRSAGENT_OUTPUTDIR) \
-		-Dmaven.compiler.fork=true -Dmaven.compiler.executable=$(BOOT_JDK)/bin/javac
-
-else
+else ifneq ($(PREBUILT_CRS_AGENT_URL),)
 
 ifeq ($(WGET),)
-    WGET := wget
+  WGET := wget
 endif
 
   $(CRSAGENT_JAR_UNSIGNED): $(CRSAGENT_OUTPUTDIR)
 	$(WGET) -O $@ $(PREBUILT_CRS_AGENT_URL)
+
+else
+ifeq ($(MVN),)
+    MVN  := mvn
+endif
+
+# Unfortunatelly we may not use fixpath.exe in regular way:
+#   $(FIXPATH) $(MVN) ...args...
+# Since often $(MVN) is only presented in CYGPATH and it is a bash script
+# which may not be executed through WinAPI as fixpath.exe does.
+#
+ifeq ($(FIXPATH),)
+FIXPATH_ARGS := echo
+else
+FIXPATH_ARGS := $(FIXPATH) cmd.exe /C echo
+endif
+
+# -DskipTests cannot run tests because need JVM we're building, chicken and egg problem (possibly can be fixed by carefully crafting command line in pom.xml)
+  $(CRSAGENT_JAR_UNSIGNED): $(CRSAGENT_OUTPUTDIR)
+	$(MVN) $(shell $(FIXPATH_ARGS) package -f $(SRC_ROOT)/crs -P zulu-build -pl z-agent -am -Djar.finalName=crs-agent -Dbuild.bootclasspath=$(JDK_OUTPUTDIR)/classes -Dbuild.output=$(CRSAGENT_OUTPUTDIR) \
+		-Dmaven.compiler.fork=true -DskipTests -Dmaven.compiler.executable=$(BOOT_JDK)/bin/javac)
 
 endif
 

@@ -2714,6 +2714,12 @@ class CommandLineFlags {
   product(bool, DisplayVMOutputToStdout, false,                             \
           "If DisplayVMOutput is true, display all VM output to stdout")    \
                                                                             \
+  product(bool, ErrorFileToStderr, false,                                   \
+          "If true, error data is printed to stderr instead of a file")     \
+                                                                            \
+  product(bool, ErrorFileToStdout, false,                                   \
+          "If true, error data is printed to stdout instead of a file")     \
+                                                                            \
   product(bool, UseHeavyMonitors, false,                                    \
           "use heavyweight instead of lightweight Java monitors")           \
                                                                             \
@@ -4058,20 +4064,18 @@ class CommandLineFlags {
   JFR_ONLY(product(bool, LogJFR, false,                                     \
           "Enable JFR logging (consider +Verbose)"))                        \
                                                                             \
-  product(bool, UseOpenJSSE, false,                                         \
-      "Enable OpenJSSE provider")                                           \
+  CRS_ONLY(experimental(ccstr, AzCRSMode, "off",                            \
+           "Selecting Connected Runtime Services mode (on/off/auto)"))      \
                                                                             \
-  product(bool, UseLegacy8uJSSE, false,                                     \
-      "Enable Legacy8uJSSE provider")                                       \
+  CRS_ONLY(experimental(ccstr, AzCRSArguments, NULL,                        \
+           "Connected Runtime Services command line arguments"))            \
                                                                             \
-  CRS_ONLY(experimental(bool, UseCRS, false,                                \
-          "Enable Connected Runtime Services"))                             \
+  CRS_ONLY(experimental(uintx, AzCRSNativeMemoryAreaSize, 2048*K,           \
+          "Size of thread-local buffer area for CRS event collection"))     \
                                                                             \
-  CRS_ONLY(experimental(ccstr, CRSArguments, NULL,                          \
-          "Connected Runtime Services command line arguments"))             \
-                                                                            \
-  CRS_ONLY(experimental(uintx, CRSNativeMemoryAreaSize, 2048*K,             \
-          "Size of thread-local buffer area for CRS event collection"))
+  CRS_ONLY(experimental(bool, AzCRSFailJVMOnError, false,                   \
+          "Halt JVM on CRS initialization error"))                          \
+
 
 /*
  *  Macros for factoring of globals

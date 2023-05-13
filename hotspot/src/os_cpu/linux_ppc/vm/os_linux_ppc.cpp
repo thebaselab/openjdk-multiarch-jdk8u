@@ -176,6 +176,10 @@ JVM_handle_linux_signal(int sig,
 
   Thread* t = ThreadLocalStorage::get_thread_slow();
 
+  // Must do this before SignalHandlerMark, if crash protection installed we will longjmp away
+  // (no destructors can be run)
+  os::ThreadCrashProtection::check_crash_protection(sig, t);
+
   SignalHandlerMark shm(t);
 
   // Note: it's not uncommon that JNI code uses signal/sigset to install
@@ -185,7 +189,7 @@ JVM_handle_linux_signal(int sig,
   // avoid unnecessary crash when libjsig is not preloaded, try handle signals
   // that do not require siginfo/ucontext first.
 
-  if (sig == SIGPIPE) {
+  if (sig == SIGPIPE || sig == SIGXFSZ) {
     if (os::Linux::chained_handler(sig, info, ucVoid)) {
       return true;
     } else {
@@ -210,7 +214,7 @@ JVM_handle_linux_signal(int sig,
 
   // Moved SafeFetch32 handling outside thread!=NULL conditional block to make
   // it work if no associated JavaThread object exists.
-  if (uc) {
+  if ((sig == SIGSEGV || sig == SIGBUS) && uc) {
     address const pc = os::Linux::ucontext_get_pc(uc);
     if (pc && StubRoutines::is_safefetch_fault(pc)) {
       uc->uc_mcontext.regs->nip = (unsigned long)StubRoutines::continuation_for_safefetch_fault(pc);

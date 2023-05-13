@@ -405,6 +405,7 @@ void freeCKMechanismPtr(CK_MECHANISM_PTR mechPtr) {
          TRACE0("FINISHED\n");
      }
 }
+
 /* This function replaces the CK_GCM_PARAMS_NO_IVBITS structure associated
  * with the specified CK_MECHANISM structure with CK_GCM_PARAMS
  * structure.

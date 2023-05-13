@@ -1068,7 +1068,7 @@ AC_DEFUN_ONCE([LIB_SETUP_STATIC_LINK_LIBSTDCPP],
     if test "x$TOOLCHAIN_TYPE" = xgcc; then
       LIBCXX="-lstdc++"
     elif test "x$TOOLCHAIN_TYPE" = xclang; then
-      LIBCXX="-std=libc++"
+      LIBCXX="-stdlib=libc++"
     fi
   fi
 

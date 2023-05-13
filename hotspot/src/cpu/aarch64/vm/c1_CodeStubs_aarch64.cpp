@@ -54,7 +54,7 @@ void ConversionStub::emit_code(LIR_Assembler* ce) {
 
   __ enter();
   __ sub(sp, sp, 2 * wordSize);
-  __ push(RegSet::range(r0, r29), sp);         // integer registers except lr & sp
+  __ push(RegSet::range(r0, r29) R18_RESERVED_ONLY(- r18), sp);         // integer registers except lr & sp
   for (int i = 30; i >= 0; i -= 2) // caller-saved fp registers
     if (i < 8 || i > 15)
       __ stpd(as_FloatRegister(i), as_FloatRegister(i+1),
@@ -99,7 +99,7 @@ void ConversionStub::emit_code(LIR_Assembler* ce) {
     if (i < 8 || i > 15)
       __ ldpd(as_FloatRegister(i), as_FloatRegister(i+1),
               Address(__ post(sp, 2 * wordSize)));
-  __ pop(RegSet::range(r0, r29), sp);
+  __ pop(RegSet::range(r0, r29) R18_RESERVED_ONLY(- r18), sp);
 
   __ ldr(as_reg(result()), Address(rfp, -wordSize));
   __ leave();

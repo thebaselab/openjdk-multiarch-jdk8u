@@ -1258,6 +1258,13 @@ public class PNGImageReader extends ImageReader {
         int width = metadata.IHDR_width;
         int height = metadata.IHDR_height;
 
+        if ((long)width * height > Integer.MAX_VALUE - 2) {
+            // We are not able to properly decode image that has number
+            // of pixels greater than Integer.MAX_VALUE - 2
+            throw new IIOException("Can not read image of the size "
+                    + width + " by " + height);
+        }
+
         // Init default values
         sourceXSubsampling = 1;
         sourceYSubsampling = 1;
@@ -1305,14 +1312,18 @@ public class PNGImageReader extends ImageReader {
             this.pixelStream = new DataInputStream(is);
 
             /*
-             * NB: the PNG spec declares that valid range for width
+             * PNG spec declares that valid range for width
              * and height is [1, 2^31-1], so here we may fail to allocate
              * a buffer for destination image due to memory limitation.
              *
-             * However, the recovery strategy for this case should be
-             * defined on the level of application, so we will not
-             * try to estimate the required amount of the memory and/or
-             * handle OOM in any way.
+             * If the read operation triggers OutOfMemoryError, the same
+             * will be wrapped in an IIOException at PNGImageReader.read
+             * method.
+             *
+             * The recovery strategy for this case should be defined at
+             * the level of application, so we will not try to estimate
+             * the required amount of the memory and/or handle OOM in
+             * any way.
              */
             theImage = getDestination(param,
                                       getImageTypes(0),
@@ -1611,7 +1622,16 @@ public class PNGImageReader extends ImageReader {
             throw new IndexOutOfBoundsException("imageIndex != 0!");
         }
 
-        readImage(param);
+        try {
+            readImage(param);
+        } catch (IOException |
+                 IllegalStateException |
+                 IllegalArgumentException e)
+        {
+            throw e;
+        } catch (Throwable e) {
+            throw new IIOException("Caught exception during read: ", e);
+        }
         return theImage;
     }
 

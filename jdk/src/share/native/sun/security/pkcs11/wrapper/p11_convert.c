@@ -1083,7 +1083,6 @@ cleanup:
     free(ckParamPtr->pAAD);
     free(ckParamPtr);
     return NULL;
-
 }
 
 /*

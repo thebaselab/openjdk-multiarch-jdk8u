@@ -35,6 +35,11 @@ import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.security.PrivilegedAction;
 
+import com.azul.tooling.in.NetConnectionEvent;
+import com.azul.tooling.in.Tooling;
+
+import static java.lang.System.currentTimeMillis;
+
 /**
  * This class implements client sockets (also called just
  * "sockets"). A socket is an endpoint for communication
@@ -574,6 +579,7 @@ class Socket implements java.io.Closeable {
      * @spec JSR-51
      */
     public void connect(SocketAddress endpoint, int timeout) throws IOException {
+        long startTimeConnect = currentTimeMillis();
         if (endpoint == null)
             throw new IllegalArgumentException("connect: The address can't be null");
 
@@ -613,6 +619,10 @@ class Socket implements java.io.Closeable {
         } else
             throw new UnsupportedOperationException("SocketImpl.connect(addr, timeout)");
         connected = true;
+        if (NetConnectionEvent.isEnabled()) {
+            Tooling.notifyEvent(NetConnectionEvent.tcpConnectionEvent(addr, port,
+                    getLocalAddress(), getLocalPort(), startTimeConnect, currentTimeMillis(), true));
+        }
         /*
          * If the socket was not bound before the connect, it is now because
          * the kernel will have picked an ephemeral port & a local address

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2008, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -373,7 +373,7 @@ Agent_OnAttach(JavaVM* vm, char *args, void * reserved) {
          * class name. The manifest is in UTF8 so need to convert to
          * modified UTF8 (see JNI spec).
          */
-        oldLen = strlen(agentClass);
+        oldLen = (int)strlen(agentClass);
         newLen = modifiedUtf8LengthOfUtf8(agentClass, oldLen);
         /*
          * According to JVMS class name is represented as CONSTANT_Utf8_info,
@@ -829,6 +829,7 @@ appendBootClassPath( JPLISAgent* agent,
 
             resolved = resolve(parent, path);
             jvmtierr = (*jvmtienv)->AddToBootstrapClassLoaderSearch(jvmtienv, resolved);
+            free(resolved);
         }
 
         /* print warning if boot class path not updated */
@@ -854,4 +855,5 @@ appendBootClassPath( JPLISAgent* agent,
     if (haveBasePath && parent != canonicalPath) {
         free(parent);
     }
+    free(paths);
 }

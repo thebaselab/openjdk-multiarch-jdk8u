@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -149,7 +149,7 @@ class NTLM {
         int readShort(int offset) throws NTLMException {
             try {
                 return (internal[offset] & 0xff) +
-                        ((internal[offset+1] & 0xff << 8));
+                        (((internal[offset+1] & 0xff) << 8));
             } catch (ArrayIndexOutOfBoundsException ex) {
                 throw new NTLMException(NTLMException.PACKET_READ_ERROR,
                         "Input message incorrect size");
@@ -228,23 +228,27 @@ class NTLM {
             System.arraycopy(data, 0, internal, offset, data.length);
         }
 
-        void writeSecurityBuffer(int offset, byte[] data) {
+        void writeSecurityBuffer(int offset, byte[] data) throws NTLMException {
             if (data == null) {
-                writeShort(offset+4, current);
+                writeInt(offset+4, current);
             } else {
                 int len = data.length;
+                if (len > 65535) {
+                    throw new NTLMException(NTLMException.INVALID_INPUT,
+                            "Invalid data length " + len);
+                }
                 if (current + len > internal.length) {
                     internal = Arrays.copyOf(internal, current + len + 256);
                 }
                 writeShort(offset, len);
                 writeShort(offset+2, len);
-                writeShort(offset+4, current);
+                writeInt(offset+4, current);
                 System.arraycopy(data, 0, internal, current, len);
                 current += len;
             }
         }
 
-        void writeSecurityBuffer(int offset, String str, boolean unicode) {
+        void writeSecurityBuffer(int offset, String str, boolean unicode) throws NTLMException {
             try {
                 writeSecurityBuffer(offset, str == null ? null : str.getBytes(
                         unicode ? "UnicodeLittleUnmarked" : "ISO8859_1"));

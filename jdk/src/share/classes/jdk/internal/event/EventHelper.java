@@ -32,8 +32,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import sun.util.logging.PlatformLogger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -45,10 +44,10 @@ public final class EventHelper {
 
     private static final JavaUtilJarAccess JUJA = SharedSecrets.javaUtilJarAccess();
     private static volatile boolean loggingSecurity;
-    private static volatile Logger securityLogger;
-    private static AtomicReference<Logger> loggerRef = new AtomicReference<>();
+    private static volatile PlatformLogger securityLogger;
+    private static AtomicReference<PlatformLogger> loggerRef = new AtomicReference<>();
 
-    private static final Level LOG_LEVEL = Level.FINE;
+    private static final PlatformLogger.Level LOG_LEVEL = PlatformLogger.Level.FINE;
 
     // helper class used for logging security related events for now
     private static final String SECURITY_LOGGER_NAME = "jdk.event.security";
@@ -61,17 +60,16 @@ public final class EventHelper {
                                             long peerCertId) {
         assert securityLogger != null;
         String prepend = getDurationString(start);
-        securityLogger.log(LOG_LEVEL, prepend +
-        " TLSHandshake: {0}:{1,number,#}, {2}, {3}, {4,number,#}",
-        new Object[]{peerHost, peerPort, protocolVersion, cipherSuite, peerCertId});
+        securityLogger.fine(prepend + " TLSHandshake: {0}:{1}, {2}, {3}, {4}",
+            new Object[] {peerHost, peerPort, protocolVersion, cipherSuite, peerCertId});
     }
 
     public static void logSecurityPropertyEvent(String key,
                                                 String value) {
 
         assert securityLogger != null;
-        securityLogger.log(LOG_LEVEL,
-            "SecurityPropertyModification: key:{0}, value:{1}", new Object[] {key, value});
+        securityLogger.fine("SecurityPropertyModification: key:{0}, value:{1}",
+            new Object[] {key, value});
 
     }
 
@@ -81,8 +79,7 @@ public final class EventHelper {
         String codes = IntStream.of(certIds)
                 .mapToObj(Integer::toString)
                 .collect(Collectors.joining(", "));
-        securityLogger.log(LOG_LEVEL,
-                "ValidationChain: {0,number,#}, {1}", new Object[]{anchorCertId, codes});
+        securityLogger.fine("ValidationChain: {0}, {1}", new Object[] {anchorCertId, codes});
     }
 
     public static void logX509CertificateEvent(String algId,
@@ -95,9 +92,9 @@ public final class EventHelper {
                                                long beginDate,
                                                long endDate) {
         assert securityLogger != null;
-        securityLogger.log(LOG_LEVEL, "X509Certificate: Alg:{0}, Serial:{1}" +
-            ", Subject:{2}, Issuer:{3}, Key type:{4}, Length:{5,number,#}" +
-            ", Cert Id:{6,number,#}, Valid from:{7}, Valid until:{8}",
+        securityLogger.fine("X509Certificate: Alg:{0}, Serial:{1}" +
+            ", Subject:{2}, Issuer:{3}, Key type:{4}, Length:{5}" +
+            ", Cert Id:{6}, Valid from:{7}, Valid until:{8}",
             new Object[]{algId, serialNum, subject, issuer, keyType, length,
             certId, new Date(beginDate), new Date(endDate)});
     }
@@ -138,7 +135,7 @@ public final class EventHelper {
         // trigger early loading of System Logger but where
         // the verification process still has JarFiles locked
         if (securityLogger == null && !JUJA.isInitializing()) {
-            if (loggerRef.compareAndSet( null, Logger.getLogger(SECURITY_LOGGER_NAME))) {
+            if (loggerRef.compareAndSet(null, PlatformLogger.getLogger(SECURITY_LOGGER_NAME))) {
                 securityLogger = loggerRef.get();
                 loggingSecurity = securityLogger.isLoggable(LOG_LEVEL);
             }

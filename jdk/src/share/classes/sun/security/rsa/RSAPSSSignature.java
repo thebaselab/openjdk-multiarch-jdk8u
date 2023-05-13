@@ -227,6 +227,34 @@ public class RSAPSSSignature extends SignatureSpi {
                 }
                 checkKeyLength(rsaKey, hLen, this.sigParams.getSaltLength());
             }
+            // validate key attributes
+            try {
+                if (rsaKey.getModulus().signum() == 0 ) {
+                    throw new InvalidKeyException("Invalid key attributes: modulus is 0");
+                } else if (rsaKey instanceof RSAPrivateKey) {
+                    RSAPrivateKey rsaPrKey = (RSAPrivateKey)rsaKey;
+                    if (rsaPrKey.getPrivateExponent().signum() == 0) {
+                        throw new InvalidKeyException("Invalid key attributes: private exponent is 0");
+                    } else if (rsaPrKey instanceof RSAPrivateCrtKey) {
+                        RSAPrivateCrtKey crtKey = (RSAPrivateCrtKey)rsaPrKey;
+                        if (crtKey.getPrimeP().signum() == 0 ||
+                            crtKey.getPrimeQ().signum() == 0 ||
+                            crtKey.getPrimeExponentP().signum() == 0 ||
+                            crtKey.getPrimeExponentQ().signum() == 0 ||
+                            crtKey.getCrtCoefficient().signum() == 0 ||
+                            crtKey.getPublicExponent().signum() == 0 ) {
+                            throw new InvalidKeyException("Invalid private crt key attributes");
+                        }
+                    }
+                } if (rsaKey instanceof RSAPublicKey) {
+                    RSAPublicKey rsaPubKey = (RSAPublicKey)rsaKey;
+                    if (rsaPubKey.getPublicExponent().signum() == 0) {
+                        throw new InvalidKeyException("Invalid key attributes: public exponent is 0");
+                    }
+                }
+            } catch(Exception ex) {
+                throw new InvalidKeyException("Invalid key attributes", ex);
+            }
             return rsaKey;
         } catch (SignatureException e) {
             throw new InvalidKeyException(e);

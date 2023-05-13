@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -53,8 +53,9 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
   KlassHandle _host_klass;
   GrowableArray<Handle>* _cp_patches; // overrides for CP entries
 #if INCLUDE_CRS
-  bool _need_file_hash;
-  u1   *_file_hash;
+  bool _need_hash;
+  bool _is_class_transformed;
+  u1   *_hash;
 #endif
 
   // precomputed flags
@@ -144,7 +145,7 @@ class ClassFileParser VALUE_OBJ_CLASS_SPEC {
     u2 _contended_group;
 
     AnnotationCollector(Location location)
-    : _location(location), _annotations_present(0)
+    : _location(location), _annotations_present(0), _contended_group(0)
     {
       assert((int)_annotation_LIMIT <= (int)sizeof(_annotations_present) * BitsPerByte, "");
     }
@@ -471,7 +472,7 @@ PRAGMA_DIAG_POP
   // Constructor
   ClassFileParser(ClassFileStream* st)
 #if INCLUDE_CRS
-  : _need_file_hash(false), _file_hash(NULL)
+  : _need_hash(false), _hash(NULL), _is_class_transformed(false)
 #endif
   {
     set_stream(st);
@@ -517,9 +518,11 @@ PRAGMA_DIAG_POP
 #endif // INCLUDE_JFR
 
 #if INCLUDE_CRS
-  void set_need_file_hash(TRAPS);
-  u1 const *get_file_hash() const;
-  uintx get_file_hash_length() const;
+  void set_need_hash(TRAPS);
+  bool is_class_transformed() const;
+  u1 const *get_original_hash() const;
+  u1 const *get_hash() const;
+  uintx get_hash_length() const;
 #endif // INCLUDE_CRS
 };
 

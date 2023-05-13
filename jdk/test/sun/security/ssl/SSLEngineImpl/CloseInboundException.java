@@ -229,7 +229,7 @@ public class CloseInboundException {
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(ts);
 
-        SSLContext sslCtx = SSLContext.getInstance("TLS");
+        SSLContext sslCtx = SSLContext.getInstance("TLSv1.2");
 
         sslCtx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 

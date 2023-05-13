@@ -47,6 +47,11 @@
 int ThreadLocalStorage::_thread_index = -1;
 
 Thread* ThreadLocalStorage::get_thread_slow() {
+  // This function can be called when the libjvm.{dll,so} is first loaded and
+  // we don't have a thread yet so we return NULL. The callers are expected to
+  // handle this (for example see os::malloc)
+  if (!is_initialized())
+    return NULL;
   return (Thread*) os::thread_local_storage_at(ThreadLocalStorage::thread_index());
 }
 

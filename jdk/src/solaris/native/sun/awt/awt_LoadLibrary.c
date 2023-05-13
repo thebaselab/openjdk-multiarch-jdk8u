@@ -30,7 +30,6 @@
 #include <jni.h>
 #include <jni_util.h>
 #include <jvm.h>
-#include <stdbool.h>
 #include "gdefs.h"
 
 #include <sys/param.h>
@@ -86,40 +85,14 @@ JNIEXPORT jboolean JNICALL AWTIsHeadless() {
  * Pathnames to the various awt toolkits
  */
 
-#ifdef MACOSX_NOTIOS
+#ifdef MACOSX
   #define LWAWT_PATH "/libawt_lwawt.dylib"
   #define DEFAULT_PATH LWAWT_PATH
-#elif !defined(MACOSX)
+#else
   #define XAWT_PATH "/libawt_xawt.so"
   #define DEFAULT_PATH XAWT_PATH
   #define HEADLESS_PATH "/libawt_headless.so"
-#else
-  #define XAWT_PATH "/libawt_xawt.dylib"
-  #define DEFAULT_PATH XAWT_PATH
-  #define HEADLESS_PATH "/libawt_headless.dylib"
 #endif
-static bool read_so_path_from_maps(const char* so_name, char* buf) {
-  FILE *fp = fopen("/proc/self/maps", "r");
-  if (!fp) {
-    return false;
-  }
-
-  char maps_buffer[2048];
-  while (fgets(maps_buffer, 2048, fp) != NULL) {
-    if (strstr(maps_buffer, so_name) == NULL) {
-      continue;
-    }
-
-    char *so_path = strchr(maps_buffer, '/');
-    so_path[strlen(so_path) - 1] = '\0'; // Cut trailing \n
-      strcpy(buf,so_path);
-    fclose(fp);
-    return true;
-  }
-
-  fclose(fp);
-  return false;
-}
 
 jint
 AWT_OnLoad(JavaVM *vm, void *reserved)
@@ -144,14 +117,7 @@ AWT_OnLoad(JavaVM *vm, void *reserved)
 
     /* Get address of this library and the directory containing it. */
     dladdr((void *)AWT_OnLoad, &dlinfo);
-    char *altpath = getenv("JAVA_AWT_PATH");
-    if (altpath != NULL) {
-      realpath(altpath, buf);
-    } else if (strrchr(dlinfo.dli_fname, '/') != NULL) {
-      realpath((char *)dlinfo.dli_fname, buf);
-    } else {
-      read_so_path_from_maps(dlinfo.dli_fname,buf);
-    }
+    realpath((char *)dlinfo.dli_fname, buf);
     len = strlen(buf);
     p = strrchr(buf, '/');
 
@@ -164,7 +130,7 @@ AWT_OnLoad(JavaVM *vm, void *reserved)
     fmProp = (*env)->NewStringUTF(env, "sun.font.fontmanager");
     CHECK_EXCEPTION_FATAL(env, "Could not allocate font manager property");
 
-#ifdef MACOSX_NOTIOS
+#ifdef MACOSX
         fmanager = (*env)->NewStringUTF(env, "sun.font.CFontManager");
         tk = LWAWT_PATH;
 #else
@@ -180,7 +146,7 @@ AWT_OnLoad(JavaVM *vm, void *reserved)
         CHECK_EXCEPTION_FATAL(env, "Could not allocate set properties");
     }
 
-#ifndef MACOSX_NOTIOS
+#ifndef MACOSX
     if (AWTIsHeadless()) {
         tk = HEADLESS_PATH;
     }

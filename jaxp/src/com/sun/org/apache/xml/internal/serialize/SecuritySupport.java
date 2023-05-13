@@ -3,11 +3,12 @@
  * DO NOT REMOVE OR ALTER!
  */
 /*
- * Copyright 2002,2004 The Apache Software Foundation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
@@ -23,7 +24,6 @@ package com.sun.org.apache.xml.internal.serialize;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.InputStream;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -111,23 +111,6 @@ final class SecuritySupport {
         } catch (PrivilegedActionException e) {
             throw (FileNotFoundException)e.getException();
         }
-    }
-
-    InputStream getResourceAsStream(final ClassLoader cl,
-            final String name)
-    {
-        return (InputStream)
-        AccessController.doPrivileged(new PrivilegedAction() {
-            public Object run() {
-                InputStream ris;
-                if (cl == null) {
-                    ris = ClassLoader.getSystemResourceAsStream(name);
-                } else {
-                    ris = cl.getResourceAsStream(name);
-                }
-                return ris;
-            }
-        });
     }
 
     boolean getFileExists(final File f) {

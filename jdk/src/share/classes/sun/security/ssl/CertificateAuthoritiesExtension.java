@@ -63,42 +63,25 @@ final class CertificateAuthoritiesExtension {
             this.authorities = authorities;
         }
 
-        private CertificateAuthoritiesSpec(HandshakeContext hc,
-                ByteBuffer m) throws IOException  {
+        private CertificateAuthoritiesSpec(ByteBuffer m) throws IOException  {
             if (m.remaining() < 3) {        // 2: the length of the list
                                             // 1: at least one byte authorities
-                if (hc != null)
-                    throw hc.conContext.fatal(Alert.DECODE_ERROR,
-                            new SSLProtocolException(
-                        "Invalid certificate_authorities extension: " +
-                        "insufficient data"));
-                else
-                    throw new SSLProtocolException(
-                            "Invalid certificate_authorities extension: " +
-                                    "insufficient data");
+                throw new SSLProtocolException(
+                    "Invalid certificate_authorities extension: " +
+                    "insufficient data");
             }
 
             int listLen = Record.getInt16(m);
             if (listLen == 0) {
-                if (hc != null)
-                    throw hc.conContext.fatal(Alert.DECODE_ERROR,
-                        "Invalid certificate_authorities extension: " +
-                        "no certificate authorities");
-                else
-                    throw new SSLProtocolException(
-                            "Invalid certificate_authorities extension: " +
-                                    "no certificate authorities");
+                throw new SSLProtocolException(
+                    "Invalid certificate_authorities extension: " +
+                    "no certificate authorities");
             }
 
             if (listLen > m.remaining()) {
-                if (hc != null)
-                    throw hc.conContext.fatal(Alert.DECODE_ERROR,
-                        "Invalid certificate_authorities extension: " +
-                        "insufficient data");
-                else
-                    throw new SSLProtocolException(
-                            "Invalid certificate_authorities extension: " +
-                                    "insufficient data");
+                throw new SSLProtocolException(
+                    "Invalid certificate_authorities extension: " +
+                    "insufficient data");
             }
 
             this.authorities = new LinkedList<>();
@@ -170,7 +153,8 @@ final class CertificateAuthoritiesExtension {
         @Override
         public String toString(ByteBuffer buffer) {
             try {
-                return (new CertificateAuthoritiesSpec(null, buffer)).toString();
+                return (new CertificateAuthoritiesSpec(buffer))
+                        .toString();
             } catch (IOException ioe) {
                 // For debug logging only, so please swallow exceptions.
                 return ioe.getMessage();
@@ -288,7 +272,7 @@ final class CertificateAuthoritiesExtension {
 
             // Parse the extension.
             CertificateAuthoritiesSpec spec =
-                    new CertificateAuthoritiesSpec(shc, buffer);
+                    new CertificateAuthoritiesSpec(buffer);
 
             // Update the context.
             shc.peerSupportedAuthorities = spec.getAuthorities();
@@ -409,7 +393,7 @@ final class CertificateAuthoritiesExtension {
 
             // Parse the extension.
             CertificateAuthoritiesSpec spec =
-                    new CertificateAuthoritiesSpec(chc, buffer);
+                    new CertificateAuthoritiesSpec(buffer);
 
             // Update the context.
             chc.peerSupportedAuthorities = spec.getAuthorities();

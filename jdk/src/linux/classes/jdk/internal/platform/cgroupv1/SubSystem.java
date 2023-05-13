@@ -155,9 +155,9 @@ public class SubSystem {
     }
 
     public static long convertStringToLong(String strval) {
-        long retval = 0;
-
         if (strval == null) return 0L;
+
+        long retval = 0;
 
         try {
             retval = Long.parseLong(strval);
@@ -169,6 +169,7 @@ public class SubSystem {
                 return Long.MAX_VALUE;
             }
         }
+
         return retval;
     }
 

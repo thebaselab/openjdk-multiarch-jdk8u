@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -90,17 +90,25 @@ define SetupLauncher
   $1_LDFLAGS := $3
   $1_LDFLAGS_SUFFIX :=
   ifeq ($(OPENJDK_TARGET_OS), macosx)
-    $1_PLIST_FILE := Info-cmdline.plist
+    $1_PLIST_SRC_FILE := Info-cmdline.plist
     ifneq ($(11), )
-      $1_PLIST_FILE := $(11)
-      ifneq ($$(findstring privileged, $$($1_PLIST_FILE)), )
+      $1_PLIST_SRC_FILE := $(11)
+      ifneq ($$(findstring privileged, $$($1_PLIST_SRC_FILE)), )
         $1_CODESIGN := true
       endif
     endif
 
+    $1_PLIST_FILE := $(JDK_OUTPUTDIR)/native/$1/Info.plist
+
+    $$($1_PLIST_FILE): $(SPEC)
+	$(MKDIR) -p $$(@D)
+	$(SED) -e "s/@@ID@@/$(MACOSX_BUNDLE_ID_BASE).$1/g" \
+	    -e "s/@@VERSION@@/$(JDK_VERSION)/g" \
+	    < $(JDK_TOPDIR)/src/macosx/lib/$$($1_PLIST_SRC_FILE) > $$($1_PLIST_FILE)
+
     $1_LDFLAGS += -Wl,-all_load $(JDK_OUTPUTDIR)/objs/libjli_static.a \
-        -framework Foundation -framework Security \
-        -sectcreate __TEXT __info_plist $(JDK_TOPDIR)/src/macosx/lib/$$($1_PLIST_FILE)
+        -framework Cocoa -framework Security -framework ApplicationServices \
+        -sectcreate __TEXT __info_plist $$($1_PLIST_FILE)
         $1_LDFLAGS_SUFFIX += -pthread
   endif
 
@@ -194,6 +202,8 @@ define SetupLauncher
 
   BUILD_LAUNCHERS += $$(BUILD_LAUNCHER_$1)
 
+  $$(BUILD_LAUNCHER_$1): $$($1_PLIST_FILE)
+
   ifneq (,$(filter $(OPENJDK_TARGET_OS), macosx aix))
     $$(BUILD_LAUNCHER_$1): $(JDK_OUTPUTDIR)/objs/libjli_static.a
   endif
@@ -211,9 +221,6 @@ ifeq ($(OPENJDK_TARGET_OS), macosx)
   DPACKAGEPATH := -DPACKAGE_PATH='"$(PACKAGE_PATH)"'
   XLIBS :=
 endif
-
-# Android: clear x11 libs link flags
-XLIBS :=
 
 ifdef OPENJDK
   JAVA_RC_FLAGS += -i "$(JDK_TOPDIR)/src/windows/resource/icons"
@@ -253,9 +260,7 @@ BUILD_LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/java$(EXE_SUFFIX)
 ifeq ($(ENABLE_DEBUG_SYMBOLS), true)
   ifneq ($(POST_STRIP_CMD), )
     ifneq ($(STRIP_POLICY), no_strip)
-    ifneq ($(OPENJDK_TARGET_OS), macosx) # Darwin does not support? 
       BUILD_LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/java$(DEBUGINFO_EXT)
-    endif
     endif
   endif
 endif
@@ -368,6 +373,7 @@ $(eval $(call SetupLauncher,jsadebugd, \
     -DAPP_CLASSPATH='{ "/lib/tools.jar"$(COMMA) "/lib/sa-jdi.jar"$(COMMA) "/classes" }' \
     ,,,,,,,,,Info-privileged.plist))
 
+ifeq ($(INCLUDE_SA),true)
 $(eval $(call SetupLauncher,hsdb, \
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.jvm.hotspot.HSDB"$(COMMA) }' \
     -DAPP_CLASSPATH='{ "/lib/tools.jar"$(COMMA) "/lib/sa-jdi.jar"$(COMMA) "/classes" }' \
@@ -377,6 +383,7 @@ $(eval $(call SetupLauncher,clhsdb, \
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) "sun.jvm.hotspot.CLHSDB"$(COMMA) }' \
     -DAPP_CLASSPATH='{ "/lib/tools.jar"$(COMMA) "/lib/sa-jdi.jar"$(COMMA) "/classes" }' \
     ,,,,,,,,,Info-privileged.plist))
+endif
 
 $(eval $(call SetupLauncher,jstack, \
     -DJAVA_ARGS='{ "-J-ms8m"$(COMMA) \
@@ -469,7 +476,7 @@ endif
 # binary (at least on linux) which causes the size to differ between old and new build.
 ifeq ($(USE_EXTERNAL_LIBZ), true)
   UNPACKEXE_CFLAGS := -DSYSTEM_ZLIB
-  UNPACKEXE_ZIPOBJS := -lz
+  UNPACKEXE_LDFLAGS_SUFFIX := -lz
 else
   UNPACKEXE_CFLAGS := -I$(JDK_TOPDIR)/src/share/native/java/util/zip/zlib
   UNPACKEXE_ZIPOBJS := $(JDK_OUTPUTDIR)/objs/libzip/zcrc32$(OBJ_SUFFIX) \
@@ -482,7 +489,10 @@ else
       $(JDK_OUTPUTDIR)/objs/libzip/infback$(OBJ_SUFFIX) \
       $(JDK_OUTPUTDIR)/objs/libzip/inftrees$(OBJ_SUFFIX) \
       $(JDK_OUTPUTDIR)/objs/libzip/inffast$(OBJ_SUFFIX)
-
+  ifeq ($(OPENJDK_TARGET_OS), linux)
+    UNPACKEXE_ZIPOBJS += $(JDK_OUTPUTDIR)/objs/libzip/zinit$(OBJ_SUFFIX)
+    UNPACKEXE_LDFLAGS_SUFFIX_linux := -ldl -lpthread
+  endif
 endif
 
 UNPACKEXE_LANG := C
@@ -531,7 +541,8 @@ $(eval $(call SetupNativeCompilation,BUILD_UNPACKEXE, \
         $(call SET_SHARED_LIBRARY_ORIGIN), \
     LDFLAGS_linux := -lc, \
     LDFLAGS_solaris := $(UNPACKEXE_LDFLAGS_solaris) -lc, \
-    LDFLAGS_SUFFIX := $(LIBCXX), \
+    LDFLAGS_SUFFIX := $(UNPACKEXE_LDFLAGS_SUFFIX) $(LIBCXX), \
+    LDFLAGS_SUFFIX_linux := $(UNPACKEXE_LDFLAGS_SUFFIX_linux), \
     OBJECT_DIR := $(JDK_OUTPUTDIR)/objs/unpackexe$(OUTPUT_SUBDIR), \
     OUTPUT_DIR := $(JDK_OUTPUTDIR)/objs/unpackexe$(OUTPUT_SUBDIR), \
     PROGRAM := unpack200, \
@@ -560,16 +571,16 @@ endif
 $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX): $(BUILD_UNPACKEXE)
 	$(call install-file)
 
-$(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(DEBUGINFO_EXT): $(BUILD_UNPACKEXE)
-	$(call install-file)
+$(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(DEBUGINFO_EXT): $(JDK_OUTPUTDIR)/objs/unpackexe$(OUTPUT_SUBDIR)/unpack200$(DEBUGINFO_EXT)
+	$(MKDIR) -p $(@D)
+	$(RM) $@
+	$(CP) -R $(JDK_OUTPUTDIR)/objs/unpackexe$(OUTPUT_SUBDIR)/unpack200$(DEBUGINFO_EXT) $@
 
 BUILD_LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(EXE_SUFFIX)
 ifeq ($(ENABLE_DEBUG_SYMBOLS), true)
   ifneq ($(POST_STRIP_CMD), )
     ifneq ($(STRIP_POLICY), no_strip)
-    ifneq ($(OPENJDK_TARGET_OS), macosx) # Darwin does not support? 
       BUILD_LAUNCHERS += $(JDK_OUTPUTDIR)/bin$(OUTPUT_SUBDIR)/unpack200$(DEBUGINFO_EXT)
-    endif
     endif
   endif
 endif

@@ -23,7 +23,13 @@
 # questions.
 #
 
-ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
+#
+# This file has been modified by Azul Systems, Inc. in 2014. These
+# modifications are Copyright (c) 2014 Azul Systems, Inc., and are made
+# available on the same license terms set forth above. 
+#
+
+ifeq ($(OPENJDK_TARGET_OS), macosx)
 
   $(eval $(call SetupNativeCompilation,BUILD_LIBAPPLESCRIPTENGINE, \
       LIBRARY := AppleScriptEngine, \
@@ -31,7 +37,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
       SRC := $(JDK_TOPDIR)/src/macosx/native/apple/applescript, \
       LANG := C, \
       OPTIMIZATION := LOW, \
-      CFLAGS := $(CFLAGS_JDKLIB) \
+      CFLAGS := $(CFLAGS_JDKLIB) -fobjc-exceptions \
           -I$(JDK_TOPDIR)/src/macosx/native/apple/applescript, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
           $(call SET_SHARED_LIBRARY_ORIGIN), \
@@ -50,7 +56,7 @@ endif
 
 ##########################################################################################
 
-ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
+ifeq ($(OPENJDK_TARGET_OS), macosx)
 
   $(eval $(call SetupNativeCompilation,BUILD_LIBOSXAPP, \
       LIBRARY := osxapp, \
@@ -58,7 +64,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
       SRC := $(JDK_TOPDIR)/src/macosx/native/sun/osxapp, \
       LANG := C, \
       OPTIMIZATION := LOW, \
-      CFLAGS := $(CFLAGS_JDKLIB) \
+      CFLAGS := $(CFLAGS_JDKLIB) -fobjc-exceptions \
           -I$(JDK_TOPDIR)/src/macosx/native/sun/osxapp \
           -I$(JDK_OUTPUTDIR)/gensrc/sun/osxapp, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \
@@ -85,7 +91,7 @@ endif
 
 ##########################################################################################
 
-ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
+ifeq ($(OPENJDK_TARGET_OS), macosx)
 
   LIBOSX_DIRS := \
       $(JDK_TOPDIR)/src/macosx/native/com/apple/concurrent \
@@ -100,7 +106,7 @@ ifeq ($(OPENJDK_TARGET_OS), macosx_NOTIOS)
       SRC := $(LIBOSX_DIRS), \
       LANG := C, \
       OPTIMIZATION := LOW, \
-      CFLAGS := $(CFLAGS_JDKLIB) \
+      CFLAGS := $(CFLAGS_JDKLIB) -fobjc-exceptions \
           $(foreach dir, $(LIBOSX_DIRS), -I$(dir)) \
           -I$(JDK_TOPDIR)/src/macosx/native/sun/osxapp, \
       LDFLAGS := $(LDFLAGS_JDKLIB) \

@@ -137,6 +137,7 @@ public class WrongPBES2 {
         try (FileInputStream fis = new FileInputStream("ks")) {
             keyStore.load(fis, PASS);
         }
+
         KeyStore.PrivateKeyEntry privateKeyEntry = new KeyStore.PrivateKeyEntry(
                 (PrivateKey)keyStore.getKey("a", PASS),
                 new Certificate[] { keyStore.getCertificate("a") });

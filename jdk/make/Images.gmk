@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2014, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -137,15 +137,19 @@ ifeq ($(PROFILE), )
       jsadebugd$(EXE_SUFFIX) \
       jhat$(EXE_SUFFIX) \
       clhsdb$(EXE_SUFFIX) \
-      hsdb$(EXE_SUFFIX) \
-      jfr$(EXE_SUFFIX)
-  NOT_JRE_DEBUGINFO_FILES := $(patsubst %$(EXE_SUFFIX),%$(DEBUGINFO_EXT),$(NOT_JRE_BIN_FILES))
+      hsdb$(EXE_SUFFIX)
+  NOT_JRE_BIN_DEBUGINFO_FILES := $(patsubst %$(EXE_SUFFIX),%$(DEBUGINFO_EXT),$(NOT_JRE_BIN_FILES))
 endif
 
 WINDOWS_JDK_BIN_FILES = \
     $(EXE_SUFFIX) \
     $(LIBRARY_PREFIX)jli$(SHARED_LIBRARY_SUFFIX) \
-    $(notdir $(MSVCR_DLL))
+    $(notdir $(MSVCR_DLL)) \
+    $(notdir $(MSVCP_DLL))
+
+ifneq ($(UCRT_DLL_DIR), )
+  WINDOWS_JDK_BIN_FILES += $(notdir $(wildcard $(UCRT_DLL_DIR)/*.dll))
+endif
 
 WINDOWS_JDKJRE_BIN_FILES := \
     $(LIBRARY_PREFIX)attach$(SHARED_LIBRARY_SUFFIX) \
@@ -157,17 +161,8 @@ ALL_BIN_LIST := $(call CacheFind, $(JDK_OUTPUTDIR)/bin)
 # Prevent sjavac from entering the images.
 ALL_BIN_LIST := $(filter-out %/sjavac, $(ALL_BIN_LIST))
 
-ifeq ($(OPENJDK_TARGET_OS), windows)
-  # On windows, the libraries are in the bin dir, only filter out debuginfo files
-  # for executables. "java" is both a library and executable.
-  ALL_BIN_EXEC_FILES := $(filter-out java.exe, $(notdir $(filter %.exe, $(ALL_BIN_LIST))))
-  ALL_BIN_DEBUG_FILTER := $(addprefix %, $(patsubst %.exe, %.debuginfo, $(ALL_BIN_EXEC_FILES)) \
-      $(patsubst %.exe, %.diz, $(ALL_BIN_EXEC_FILES))) %.pdb
-  ALL_BIN_LIST := $(filter-out $(ALL_BIN_DEBUG_FILTER), $(ALL_BIN_LIST))
-endif
-
-JDKJRE_BIN_LIST := $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES)), $(ALL_BIN_LIST))
-JRE_BIN_LIST := $(filter-out $(addprefix %, $(WINDOWS_JDKJRE_BIN_FILES)) $(addprefix %, $(NOT_JRE_DEBUGINFO_FILES)), $(JDKJRE_BIN_LIST))
+JDKJRE_BIN_LIST := $(filter-out $(addprefix %, $(NOT_JRE_BIN_FILES)) $(addprefix %, $(NOT_JRE_BIN_DEBUGINFO_FILES)), $(ALL_BIN_LIST))
+JRE_BIN_LIST := $(filter-out $(addprefix %, $(WINDOWS_JDKJRE_BIN_FILES)), $(JDKJRE_BIN_LIST))
 
 ifeq ($(OPENJDK_TARGET_OS), windows)
   JDK_BIN_LIST := $(filter $(addprefix %, $(WINDOWS_JDK_BIN_FILES)), $(ALL_BIN_LIST))
@@ -616,35 +611,50 @@ endef
 define create-info-file
 	$(MKDIR) -p $(@D)
 	$(RM) $@
+	if [ -n "$(IMPLEMENTOR_NAME)" ]; then $(call info-file-item, "IMPLEMENTOR", "$(IMPLEMENTOR_NAME)"); fi
+	if [ -n "$(IMPLEMENTOR_VERSION)" ]; then $(call info-file-item, "IMPLEMENTOR_VERSION", "$(IMPLEMENTOR_VERSION)"); fi
 	$(call info-file-item, "JAVA_VERSION", "$(JDK_VERSION)")
 	$(call info-file-item, "OS_NAME", "$(REQUIRED_OS_NAME)")
 	$(call info-file-item, "OS_VERSION", "$(REQUIRED_OS_VERSION)")
 	$(call info-file-item, "OS_ARCH", "$(OPENJDK_TARGET_CPU_LEGACY)")
 	if [ -n "$(JDK_ARCH_ABI_PROP_NAME)" ]; then $(call info-file-item, "SUN_ARCH_ABI", "$(JDK_ARCH_ABI_PROP_NAME)"); fi
-	$(call info-file-item, "SOURCE", "$(ALL_SOURCE_TIPS)")
+	$(call info-file-item, "SOURCE", "$(strip $(SOURCE_REVISION))")
 endef
 
-ALL_SOURCE_TIPS = $(shell \
-    if [ -f $(OUTPUT_ROOT)/source_tips ] ; then \
-      $(CAT) $(OUTPUT_ROOT)/source_tips ; \
+SOURCE_REVISION = $(shell \
+    if [ -f $(SOURCE_REVISION_TRACKER) ] ; then \
+      $(CAT) $(SOURCE_REVISION_TRACKER) ; \
     fi)
 
-$(JRE_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(OUTPUT_ROOT)/source_tips
+# use PRODUCT_VENDOR_NAME if any, or use Azul company name for Zulu builds.
+IMPLEMENTOR_NAME = $(shell \
+    if [ -n "$(PRODUCT_VENDOR_NAME)" ]; then \
+        $(ECHO) "$(PRODUCT_VENDOR_NAME)"; \
+    else \
+        if [ -n "$(PRODUCT_VENDOR_VERSION)" ]; then \
+            $(ECHO) "Azul Systems, Inc."; \
+        fi; \
+    fi)
+
+IMPLEMENTOR_VERSION = $(subst Zulu ,Zulu,$(PRODUCT_VENDOR_VERSION))
+
+# The SOURCE_REVISION_TRACKER file may not exist. Only depend on it if it does.
+$(JRE_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(wildcard $(SOURCE_REVISION_TRACKER))
 	$(ECHO) $(LOG_INFO) Generating $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(call create-info-file)
         ifneq ($(PROFILE), )
 	  $(call info-file-item, "JAVA_PROFILE", "$(call profile_name, $(call profile_number, $(PROFILE)))")
         endif
 
-$(JDK_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(OUTPUT_ROOT)/source_tips
+$(JDK_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(wildcard $(SOURCE_REVISION_TRACKER))
 	$(ECHO) $(LOG_INFO) Generating $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(call create-info-file)
 
-$(JRE_OVERLAY_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(OUTPUT_ROOT)/source_tips
+$(JRE_OVERLAY_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(wildcard $(SOURCE_REVISION_TRACKER))
 	$(ECHO) $(LOG_INFO) Generating $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(call create-info-file)
 
-$(JDK_OVERLAY_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(OUTPUT_ROOT)/source_tips
+$(JDK_OVERLAY_INFO_FILE): $(OUTPUT_ROOT)/spec.gmk $(wildcard $(SOURCE_REVISION_TRACKER))
 	$(ECHO) $(LOG_INFO) Generating $(patsubst $(OUTPUT_ROOT)/%,%,$@)
 	$(call create-info-file)
 
@@ -775,7 +785,7 @@ ifneq ($(PROFILE), )
 	    $(call profile_name, $(call profile_number, $(PROFILE)))
 	$(TOUCH) $@
 
-  profile-image: $(JRE_BIN_TARGETS) $(JRE_LIB_TARGETS) \
+  profile-image: $(JRE_BIN_TARGETS) $(JRE_LIB_TARGETS) $(JRE_DOC_TARGETS)\
 	$(JRE_IMAGE_DIR)/lib/meta-index $(JRE_IMAGE_DIR)/lib/ext/meta-index \
 	$(JRE_INFO_FILE) $(JRE_STRIP_LIST) $(PROFILE_IMAGE_JARS_CHECKED)
 

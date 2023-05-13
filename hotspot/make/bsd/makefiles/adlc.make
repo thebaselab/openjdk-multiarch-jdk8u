@@ -150,6 +150,12 @@ ifneq "$(shell expr \( $(CC_VER_MAJOR) \> 3 \) \| \( \( $(CC_VER_MAJOR) = 3 \) \
 ADLCFLAGS += -g
 endif
 
+ifeq ($(call isTargetOs, macosx), true)
+    ifeq ($(ARCH), aarch64)
+      ADLCFLAGS += -DR18_RESERVED=1
+    endif
+endif
+
 ifdef LP64
 ADLCFLAGS += -D_LP64
 else

@@ -1656,24 +1656,28 @@ bool nmethod::can_unload(BoolObjectClosure* is_alive, oop* root, bool unloading_
 // Transfer information from compilation to jvmti
 void nmethod::post_compiled_method_load_event() {
 
-  Method* moop = method();
+  // This is a bad time for a safepoint.  We don't want
+  // this nmethod to get unloaded while we're queueing the event.
+  No_Safepoint_Verifier nsv;
+
+  Method* m = method();
 #ifndef USDT2
   HS_DTRACE_PROBE8(hotspot, compiled__method__load,
-      moop->klass_name()->bytes(),
-      moop->klass_name()->utf8_length(),
-      moop->name()->bytes(),
-      moop->name()->utf8_length(),
-      moop->signature()->bytes(),
-      moop->signature()->utf8_length(),
+      m->klass_name()->bytes(),
+      m->klass_name()->utf8_length(),
+      m->name()->bytes(),
+      m->name()->utf8_length(),
+      m->signature()->bytes(),
+      m->signature()->utf8_length(),
       insts_begin(), insts_size());
 #else /* USDT2 */
   HOTSPOT_COMPILED_METHOD_LOAD(
-      (char *) moop->klass_name()->bytes(),
-      moop->klass_name()->utf8_length(),
-      (char *) moop->name()->bytes(),
-      moop->name()->utf8_length(),
-      (char *) moop->signature()->bytes(),
-      moop->signature()->utf8_length(),
+      (char *) m->klass_name()->bytes(),
+      m->klass_name()->utf8_length(),
+      (char *) m->name()->bytes(),
+      m->name()->utf8_length(),
+      (char *) m->signature()->bytes(),
+      m->signature()->utf8_length(),
       insts_begin(), insts_size());
 #endif /* USDT2 */
 
@@ -2612,6 +2616,7 @@ address nmethod::continuation_for_implicit_exception(address pc) {
     ResourceMark rm(thread);
     CodeBlob* cb = CodeCache::find_blob(pc);
     assert(cb != NULL && cb == this, "");
+    ttyLocker ttyl;
     tty->print_cr("implicit exception happened at " INTPTR_FORMAT, pc);
     print();
     method()->print_codes();
@@ -2932,13 +2937,6 @@ void nmethod::print() const {
                                               nul_chk_table_end(),
                                               nul_chk_table_size());
 }
-
-void nmethod::print_code() {
-  HandleMark hm;
-  ResourceMark m;
-  Disassembler::decode(this);
-}
-
 
 #ifndef PRODUCT
 

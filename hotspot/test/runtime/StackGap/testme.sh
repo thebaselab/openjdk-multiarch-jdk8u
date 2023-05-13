@@ -49,8 +49,6 @@ if [ "x$gcc_cmd" = "x" ]; then
     exit 0;
 fi
 
-CFLAGS="-m${VM_BITS}"
-
 LD_LIBRARY_PATH=.:${COMPILEJAVA}/jre/lib/${VM_CPU}/${VM_TYPE}:/usr/lib:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH
 
@@ -59,15 +57,15 @@ cp ${TESTSRC}${FS}exestack-gap.c .
 # Copy the result of our @compile action:
 cp ${TESTCLASSES}${FS}T.class .
 
-echo "Compilation flag: ${COMP_FLAG}"
 # Note pthread may not be found thus invoke creation will fail to be created.
 # Check to ensure you have a /usr/lib/libpthread.so if you don't please look
 # for /usr/lib/`uname -m`-linux-gnu version ensure to add that path to below compilation.
 
-$gcc_cmd -DLINUX ${CFLAGS} -o stack-gap \
+$gcc_cmd -DLINUX ${CFLAGBITS} -o stack-gap \
     -I${COMPILEJAVA}/include -I${COMPILEJAVA}/include/linux \
     -L${COMPILEJAVA}/jre/lib/${VM_CPU}/${VM_TYPE} \
-    -ljvm -lpthread exestack-gap.c
+    exestack-gap.c \
+    -ljvm -lpthread
 
 ./stack-gap || exit $?
 ./stack-gap -XX:+DisablePrimordialThreadGuardPages || exit $?

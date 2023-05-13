@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -2725,6 +2725,7 @@ static int inner_classes_jump_to_outer(const Array<u2>* inner_classes, int inner
 static bool inner_classes_check_loop_through_outer(const Array<u2>* inner_classes, int idx, const ConstantPool* cp, int length) {
   int slow = inner_classes->at(idx + InstanceKlass::inner_class_inner_class_info_offset);
   int fast = inner_classes->at(idx + InstanceKlass::inner_class_outer_class_info_offset);
+
   while (fast != -1 && fast != 0) {
     if (slow != 0 && (cp->klass_name_at(slow) == cp->klass_name_at(fast))) {
       return true;  // found a circularity
@@ -2754,14 +2755,15 @@ bool ClassFileParser::check_inner_classes_circularity(const ConstantPool* cp, in
     for (int y = idx + InstanceKlass::inner_class_next_offset; y < length;
          y += InstanceKlass::inner_class_next_offset) {
 
-      // To maintain compatibility, throw an exception if duplicate inner classes
-      // entries are found.
-      guarantee_property((_inner_classes->at(idx) != _inner_classes->at(y) ||
-                          _inner_classes->at(idx+1) != _inner_classes->at(y+1) ||
-                          _inner_classes->at(idx+2) != _inner_classes->at(y+2) ||
-                          _inner_classes->at(idx+3) != _inner_classes->at(y+3)),
-                         "Duplicate entry in InnerClasses attribute in class file %s",
-                         CHECK_(true));
+      // 4347400: make sure there's no duplicate entry in the classes array
+      if (_major_version >= JAVA_1_5_VERSION) {
+        guarantee_property((_inner_classes->at(idx) != _inner_classes->at(y) ||
+                            _inner_classes->at(idx+1) != _inner_classes->at(y+1) ||
+                            _inner_classes->at(idx+2) != _inner_classes->at(y+2) ||
+                            _inner_classes->at(idx+3) != _inner_classes->at(y+3)),
+                           "Duplicate entry in InnerClasses attribute in class file %s",
+                           CHECK_(true));
+      }
       // Return true if there are two entries with the same inner_class_info_index.
       if (_inner_classes->at(y) == _inner_classes->at(idx)) {
         return true;
@@ -2807,8 +2809,7 @@ u2 ClassFileParser::parse_classfile_inner_classes_attribute(const ConstantPool* 
     // Inner class index
     u2 inner_class_info_index = cfs->get_u2_fast();
     check_property(
-      inner_class_info_index == 0 ||
-        valid_klass_reference_at(inner_class_info_index),
+      valid_klass_reference_at(inner_class_info_index),
       "inner_class_info_index %u has bad constant type in class file %s",
       inner_class_info_index, CHECK_0);
     // Outer class index
@@ -2818,6 +2819,13 @@ u2 ClassFileParser::parse_classfile_inner_classes_attribute(const ConstantPool* 
         valid_klass_reference_at(outer_class_info_index),
       "outer_class_info_index %u has bad constant type in class file %s",
       outer_class_info_index, CHECK_0);
+
+    if (outer_class_info_index != 0) {
+      const Symbol* const outer_class_name = cp->klass_name_at(outer_class_info_index);
+      char* bytes = (char*)outer_class_name->bytes();
+      guarantee_property(bytes[0] != JVM_SIGNATURE_ARRAY,
+                         "Outer class is an array class in class file %s", CHECK_0);
+    }
     // Inner class name
     u2 inner_name_index = cfs->get_u2_fast();
     check_property(
@@ -2844,10 +2852,9 @@ u2 ClassFileParser::parse_classfile_inner_classes_attribute(const ConstantPool* 
     inner_classes->at_put(index++, inner_access_flags.as_short());
   }
 
-  // 4347400: make sure there's no duplicate entry in the classes array
-  // Also, check for circular entries.
+  // Check for circular and duplicate entries.
   bool has_circularity = false;
-  if (_need_verify && _major_version >= JAVA_1_5_VERSION) {
+  if (_need_verify) {
     has_circularity = check_inner_classes_circularity(cp, length * 4, CHECK_0);
     if (has_circularity) {
       // If circularity check failed then ignore InnerClasses attribute.
@@ -3853,7 +3860,8 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
 
   init_parsed_class_attributes(loader_data);
 
-  if (JvmtiExport::should_post_class_file_load_hook()) {
+  // Skip this processing for VM anonymous classes
+  if (host_klass.is_null() && JvmtiExport::should_post_class_file_load_hook()) {
     // Get the cached class file bytes (if any) from the class that
     // is being redefined or retransformed. We use jvmti_thread_state()
     // instead of JvmtiThreadState::state_for(jt) so we don't allocate
@@ -3878,6 +3886,13 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
 
     if (ptr != cfs->buffer()) {
       // JVMTI agent has modified class file data.
+      // Calculate original class data hash
+#if INCLUDE_CRS
+      if (_need_hash && _hash) { // _hash can be NULL if memory allocation has failed
+        sha256(cfs->buffer(), cfs->length(), _hash + DL_SHA256);
+        _is_class_transformed = true;
+      }
+#endif // INCLUDE_CRS
       // Set new class file stream using JVMTI agent modified
       // class file data.
       cfs = new ClassFileStream(ptr, end_ptr - ptr, cfs->source());
@@ -3889,8 +3904,8 @@ instanceKlassHandle ClassFileParser::parseClassFile(Symbol* name,
   _cp_patches = cp_patches;
 
 #if INCLUDE_CRS
-  if (_need_file_hash && _file_hash) { // _file_hash can be NULL if memory allocation has failed
-    sha256(cfs->buffer(), cfs->length(), _file_hash);
+  if (_need_hash && _hash) { // _hash can be NULL if memory allocation has failed
+    sha256(cfs->buffer(), cfs->length(), _hash);
   }
 #endif // INCLUDE_CRS
 
@@ -5408,17 +5423,25 @@ void ClassFileParser::set_klass_to_deallocate(InstanceKlass* klass) {
 
 #if INCLUDE_CRS
 
-void ClassFileParser::set_need_file_hash(TRAPS) {
-  _need_file_hash = true;
-  _file_hash = NEW_RESOURCE_ARRAY_IN_THREAD_RETURN_NULL(THREAD, u1, DL_SHA256);
+void ClassFileParser::set_need_hash(TRAPS) {
+  assert(_hash == NULL, "invariant");
+  _need_hash = true;
+  _hash = NEW_RESOURCE_ARRAY_IN_THREAD_RETURN_NULL(THREAD, u1, DL_SHA256 * 2);
 }
 
-u1 const* ClassFileParser::get_file_hash() const {
-  assert(_file_hash != NULL, "invariant");
-  return _file_hash;
+bool ClassFileParser::is_class_transformed() const {
+  return _is_class_transformed;
 }
 
-uintx ClassFileParser::get_file_hash_length() const {
+u1 const* ClassFileParser::get_original_hash() const {
+  return _is_class_transformed ? _hash + DL_SHA256 : NULL;
+}
+
+u1 const* ClassFileParser::get_hash() const {
+  return _hash;
+}
+
+uintx ClassFileParser::get_hash_length() const {
   return DL_SHA256;
 }
 

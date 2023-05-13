@@ -77,7 +77,8 @@ LP64=1
 !if "$(BUILDARCH)" == "i486"
 MACHINE=I386
 DEFAULT_COMPILER_NAME=VS2003
-CXX_FLAGS=$(CXX_FLAGS) /D "IA32"
+# VS2013 generates bad l2f without /arch:IA32
+CXX_FLAGS=$(CXX_FLAGS) /D "IA32" /arch:IA32
 !endif
 
 # Sanity check, this is the default if not amd64, ia64, or i486
@@ -167,6 +168,9 @@ COMPILER_NAME=VS2017
 !endif
 !if "$(MSC_VER)" == "1916"
 COMPILER_NAME=VS2017
+!endif
+!if "$(MSC_VER)" == "1929"
+COMPILER_NAME=VS2019
 !endif
 !endif
 
@@ -303,6 +307,21 @@ SAFESEH_FLAG = /SAFESEH
 !endif
 
 !if "$(COMPILER_NAME)" == "VS2017"
+PRODUCT_OPT_OPTION   = /O2 /Oy-
+FASTDEBUG_OPT_OPTION = /O2 /Oy-
+DEBUG_OPT_OPTION     = /Od
+GX_OPTION = /EHsc
+LD_FLAGS = /manifest $(LD_FLAGS)
+MP_FLAG = /MP
+# Manifest Tool - used in VS2005 and later to adjust manifests stored
+# as resources inside build artifacts.
+!if "x$(MT)" == "x"
+MT=mt.exe
+!endif
+SAFESEH_FLAG = /SAFESEH
+!endif
+
+!if "$(COMPILER_NAME)" == "VS2019"
 PRODUCT_OPT_OPTION   = /O2 /Oy-
 FASTDEBUG_OPT_OPTION = /O2 /Oy-
 DEBUG_OPT_OPTION     = /Od

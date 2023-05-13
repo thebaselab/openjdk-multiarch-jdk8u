@@ -66,6 +66,8 @@ SUNWprivate_1.1 {
 		Java_java_util_zip_ZipFile_open;
 		Java_java_util_zip_ZipFile_read;
 		Java_java_util_zip_ZipFile_startsWithLOC;
+		Java_java_util_zip_ZipFile_getManifestNum;
+		Java_java_util_zip_ZipFile_getCentralDirectoryBytes;
 
 		ZIP_Close;
 		ZIP_CRC32;
@@ -77,6 +79,8 @@ SUNWprivate_1.1 {
 		ZIP_Read;
 		ZIP_ReadEntry;
 		ZIP_Unlock;
+		ZIP_ReadCentralDirectory;
+		ZIP_FreeCentralDirectory;
 
 	local:
 		*;

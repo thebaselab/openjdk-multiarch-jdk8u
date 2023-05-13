@@ -247,8 +247,7 @@ endif
 
 # Compiler warnings are treated as errors
 ifneq ($(COMPILER_WARNINGS_FATAL),false)
-  # WARNINGS_ARE_ERRORS = -Werror
-  WARNINGS_ARE_ERRORS = -Werror=implicit-function-declaration
+  WARNINGS_ARE_ERRORS = -Werror
 endif
 
 ifeq ($(USE_CLANG), true)
@@ -314,16 +313,10 @@ OPT_CFLAGS/NOOPT=-O0
 
 # Work around some compiler bugs.
 ifeq ($(USE_CLANG), true)
-  # Clang <= 6.1
-  ifeq ($(shell expr \
-      $(CC_VER_MAJOR) \< 6 \| \
-      \( $(CC_VER_MAJOR) = 6 \& $(CC_VER_MINOR) \<= 1 \) \
-    ), 1)
-    OPT_CFLAGS/loopTransform.o += $(OPT_CFLAGS/NOOPT)
-    OPT_CFLAGS/unsafe.o += -O1
-  else
-    OPT_CFLAGS/unsafe.o += -O1
-  endif
+  # Known to fail with clang <= 7.0; 
+  # do no optimize these on later clang until verified
+  OPT_CFLAGS/loopTransform.o += $(OPT_CFLAGS/NOOPT)
+  OPT_CFLAGS/unsafe.o += -O1
 else
   # 6835796. Problem in GCC 4.3.0 with mulnode.o optimized compilation.
   ifeq ($(shell expr $(CC_VER_MAJOR) = 4 \& $(CC_VER_MINOR) = 3), 1)
@@ -350,20 +343,12 @@ ifeq ($(OS_VENDOR), Darwin)
   # if built on a newer version of the OS.
   # The expected format is X.Y.Z
   ifeq ($(MACOSX_VERSION_MIN),)
-    MACOSX_VERSION_MIN=10.7.0
+    MACOSX_VERSION_MIN=10.9.0
   endif
   # The macro takes the version with no dots, ex: 1070
-  ifdef CROSS_COMPILE_ARCH
-    HOSTCC += -DMAC_OS_X_VERSION_MAX_ALLOWED=$(subst .,,$(MACOSX_VERSION_MIN)) \
-              -mmacosx-version-min=$(MACOSX_VERSION_MIN)
-    HOSTCXX += -mmacosx-version-min=$(MACOSX_VERSION_MIN)
-    # Quick way to replace finite() with isfinite()
-    CXX += -Dfinite\(x\)=isfinite\(x\)
-  else
-    CFLAGS += -DMAC_OS_X_VERSION_MAX_ALLOWED=$(subst .,,$(MACOSX_VERSION_MIN)) \
-              -mmacosx-version-min=$(MACOSX_VERSION_MIN)
-    LFLAGS += -mmacosx-version-min=$(MACOSX_VERSION_MIN)
-  endif
+  CFLAGS += -DMAC_OS_X_VERSION_MAX_ALLOWED=$(subst .,,$(MACOSX_VERSION_MIN)) \
+            -mmacosx-version-min=$(MACOSX_VERSION_MIN)
+  LFLAGS += -mmacosx-version-min=$(MACOSX_VERSION_MIN)
 endif
 
 

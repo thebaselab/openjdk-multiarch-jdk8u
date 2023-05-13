@@ -90,7 +90,6 @@ typedef void * * (JNICALL *ZipOpen_t)(const char *name, char **pmsg);
 typedef void (JNICALL *ZipClose_t)(jzfile *zip);
 typedef jzentry* (JNICALL *FindEntry_t)(jzfile *zip, const char *name, jint *sizeP, jint *nameLen);
 typedef jboolean (JNICALL *ReadEntry_t)(jzfile *zip, jzentry *entry, unsigned char *buf, char *namebuf);
-typedef jboolean (JNICALL *ReadMappedEntry_t)(jzfile *zip, jzentry *entry, unsigned char **buf, char *namebuf);
 typedef jzentry* (JNICALL *GetNextEntry_t)(jzfile *zip, jint n);
 typedef jint     (JNICALL *Crc32_t)(jint crc, const jbyte *buf, jint len);
 
@@ -98,7 +97,6 @@ static ZipOpen_t         ZipOpen            = NULL;
 static ZipClose_t        ZipClose           = NULL;
 static FindEntry_t       FindEntry          = NULL;
 static ReadEntry_t       ReadEntry          = NULL;
-static ReadMappedEntry_t ReadMappedEntry    = NULL;
 static GetNextEntry_t    GetNextEntry       = NULL;
 static canonicalize_fn_t CanonicalizeEntry  = NULL;
 static Crc32_t           Crc32              = NULL;
@@ -320,6 +318,9 @@ ClassPathZipEntry::ClassPathZipEntry(jzfile* zip, const char* zip_name) : ClassP
 
 ClassPathZipEntry::~ClassPathZipEntry() {
   if (ZipClose != NULL) {
+    JavaThread* thread = JavaThread::current();
+    ThreadToNativeFromVM ttn(thread);
+    Thread::WXExecFromWriteSetter wx_exec;
     (*ZipClose)(_zip);
   }
   FREE_C_HEAP_ARRAY(char, _zip_name, mtClass);
@@ -343,19 +344,20 @@ u1* ClassPathZipEntry::open_entry(const char* name, jint* filesize, bool nul_ter
     filename = NEW_RESOURCE_ARRAY(char, name_len + 1);
   }
 
-  // file found, get pointer to the entry in mmapped jar file.
-  if (ReadMappedEntry == NULL ||
-      !(*ReadMappedEntry)(_zip, entry, &buffer, filename)) {
-      // mmapped access not available, perhaps due to compression,
-      // read contents into resource array
-      int size = (*filesize) + ((nul_terminate) ? 1 : 0);
-      buffer = NEW_RESOURCE_ARRAY(u1, size);
-      if (!(*ReadEntry)(_zip, entry, buffer, filename)) return NULL;
+  // read contents into resource array
+  size_t size = (uint32_t)(*filesize);
+  if (nul_terminate) {
+    if (sizeof(size) == sizeof(uint32_t) && size == UINT_MAX) {
+      return NULL; // 32-bit integer overflow will occur.
+    }
+    size++;
   }
+  buffer = NEW_RESOURCE_ARRAY(u1, size);
+  if (!(*ReadEntry)(_zip, entry, buffer, filename)) return NULL;
 
   // return result
   if (nul_terminate) {
-    buffer[*filesize] = 0;
+    buffer[size - 1] = 0;
   }
   return buffer;
 }
@@ -880,7 +882,6 @@ void ClassLoader::load_zip_library() {
   ZipClose     = CAST_TO_FN_PTR(ZipClose_t, os::dll_lookup(handle, "ZIP_Close"));
   FindEntry    = CAST_TO_FN_PTR(FindEntry_t, os::dll_lookup(handle, "ZIP_FindEntry"));
   ReadEntry    = CAST_TO_FN_PTR(ReadEntry_t, os::dll_lookup(handle, "ZIP_ReadEntry"));
-  ReadMappedEntry = CAST_TO_FN_PTR(ReadMappedEntry_t, os::dll_lookup(handle, "ZIP_ReadMappedEntry"));
   GetNextEntry = CAST_TO_FN_PTR(GetNextEntry_t, os::dll_lookup(handle, "ZIP_GetNextEntry"));
   Crc32        = CAST_TO_FN_PTR(Crc32_t, os::dll_lookup(handle, "ZIP_CRC32"));
 
@@ -1185,7 +1186,7 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
     ClassLoaderData* loader_data = ClassLoaderData::the_null_class_loader_data();
     Handle protection_domain;
     TempNewSymbol parsed_name = NULL;
-    CRS_ONLY(parser.set_need_file_hash(THREAD));
+    CRS_ONLY(parser.set_need_hash(THREAD));
     // Callers are expected to declare a ResourceMark to determine
     // the lifetime of any updated (resource) allocated under
     // this call to parseClassFile
@@ -1217,7 +1218,8 @@ instanceKlassHandle ClassLoader::load_classfile(Symbol* h_name, TRAPS) {
     // however for purpose of consistency we deal with original class file
 #endif
     CRS_ONLY(ConnectedRuntime::notify_class_load(result,
-            parser.get_file_hash(), parser.get_file_hash_length(),
+            parser.is_class_transformed(), parser.get_original_hash(),
+            parser.get_hash(), parser.get_hash_length(),
             e->name(), THREAD));
 
     h = context.record_result(classpath_index, e, result, THREAD);

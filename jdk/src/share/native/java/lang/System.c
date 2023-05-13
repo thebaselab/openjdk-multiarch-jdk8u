@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994, 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -119,10 +119,10 @@ Java_java_lang_System_identityHashCode(JNIEnv *env, jobject this, jobject x)
 #define VENDOR "Azul Systems, Inc."
 #endif
 #ifndef VENDOR_URL
-#define VENDOR_URL "http://www.azulsystems.com/"
+#define VENDOR_URL "http://www.azul.com/"
 #endif
 #ifndef VENDOR_URL_BUG
-#define VENDOR_URL_BUG "http://www.azulsystems.com/support/"
+#define VENDOR_URL_BUG "http://www.azul.com/support/"
 #endif
 
 #define JAVA_MAX_SUPPORTED_VERSION 52
@@ -220,6 +220,8 @@ Java_java_lang_System_initProperties(JNIEnv *env, jclass cla, jobject props)
 
     PUTPROP(props, "java.specification.version",
             JDK_MAJOR_VERSION "." JDK_MINOR_VERSION);
+    PUTPROP(props, "java.specification.maintenance.version",
+            "4");
     PUTPROP(props, "java.specification.name",
             "Java Platform API Specification");
     PUTPROP(props, "java.specification.vendor",

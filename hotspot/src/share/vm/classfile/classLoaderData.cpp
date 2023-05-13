@@ -475,7 +475,6 @@ void ClassLoaderData::free_deallocate_list() {
       // There are only three types of metadata that we deallocate directly.
       // Cast them so they can be used by the template function.
       if (m->is_method()) {
-        CRS_ONLY(ConnectedRuntime::notify_metaspace_eviction((Method*)m);)
         MetadataFactory::free_metadata(this, (Method*)m);
       } else if (m->is_constantPool()) {
         MetadataFactory::free_metadata(this, (ConstantPool*)m);

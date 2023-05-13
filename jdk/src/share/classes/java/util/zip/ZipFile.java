@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2015, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -42,6 +42,7 @@ import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.WeakHashMap;
+import java.util.jar.JarFile;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -63,6 +64,7 @@ class ZipFile implements ZipConstants, Closeable {
     private final int total;       // total number of entries
     private final boolean locsig;  // if zip file starts with LOCSIG (usually true)
     private volatile boolean closeRequested = false;
+    private int manifestNum = 0;       // number of META-INF/MANIFEST.MF, case insensitive
 
     private static final int STORED = ZipEntry.STORED;
     private static final int DEFLATED = ZipEntry.DEFLATED;
@@ -216,6 +218,7 @@ class ZipFile implements ZipConstants, Closeable {
                                                Integer.toHexString(mode));
         }
         String name = file.getPath();
+        file = new File(name);
         SecurityManager sm = System.getSecurityManager();
         if (sm != null) {
             sm.checkRead(name);
@@ -233,6 +236,7 @@ class ZipFile implements ZipConstants, Closeable {
         this.name = name;
         this.total = getTotal(jzfile);
         this.locsig = startsWithLOC(jzfile);
+        this.manifestNum = getManifestNum(jzfile);
     }
 
     /**
@@ -811,6 +815,9 @@ class ZipFile implements ZipConstants, Closeable {
                 public boolean startsWithLocHeader(ZipFile zip) {
                     return zip.startsWithLocHeader();
                 }
+                public int getManifestNum(JarFile jar) {
+                    return ((ZipFile)jar).getManifestNum();
+                }
              }
         );
     }
@@ -823,10 +830,23 @@ class ZipFile implements ZipConstants, Closeable {
         return locsig;
     }
 
+    /*
+     * Returns the number of the META-INF/MANIFEST.MF entries, case insensitive.
+     * When this number is greater than 1, JarVerifier will treat a file as
+     * unsigned.
+     */
+    private int getManifestNum() {
+        synchronized (this) {
+            ensureOpen();
+            return manifestNum;
+        }
+    }
+
     private static native long open(String name, int mode, long lastModified,
                                     boolean usemmap) throws IOException;
     private static native int getTotal(long jzfile);
     private static native boolean startsWithLOC(long jzfile);
+    private static native int getManifestNum(long jzfile);
     private static native int read(long jzfile, long jzentry,
                                    long pos, byte[] b, int off, int len);
 
@@ -845,4 +865,13 @@ class ZipFile implements ZipConstants, Closeable {
     private static native byte[] getEntryBytes(long jzentry, int type);
 
     private static native String getZipMessage(long jzfile);
+
+    private static native byte[] getCentralDirectoryBytes(long jzfile) throws ZipException;
+
+    private byte[] getCentralDirectory() throws ZipException {
+        synchronized (this) {
+            ensureOpen();
+            return getCentralDirectoryBytes(jzfile);
+        }
+    }
 }

@@ -23,6 +23,12 @@
 # questions.
 #
 
+#
+# This file has been modified by Azul Systems, Inc. in 2014. These
+# modifications are Copyright (c) 2014 Azul Systems, Inc., and are made
+# available on the same license terms set forth above. 
+#
+
 include ProfileNames.gmk
 
 ################################################################################
@@ -39,8 +45,12 @@ $(PROFILE_VERSION_JAVA_TARGETS): \
 	$(SED) -e 's/@@launcher_name@@/$(LAUNCHER_NAME)/g' \
 	    -e 's/@@java_version@@/$(RELEASE)/g' \
 	    -e 's/@@java_runtime_version@@/$(FULL_VERSION)/g' \
+            -e 's/@@java_vendor_version@@/$(PRODUCT_VENDOR_VERSION)/g' \
 	    -e 's/@@java_runtime_name@@/$(RUNTIME_NAME)/g' \
+	    -e 's/@@azul_runtime_name@@/$(AZUL_RUNTIME_NAME)/g' \
+	    -e 's/@@azul_runtime_suffix@@/$(AZUL_RUNTIME_SUFFIX)/g' \
 	    -e 's/@@java_profile_name@@/$(call profile_version_name, $@)/g' \
+	    -e 's/@@azul_version_suffix@@/$(AZUL_VERSION_SUFFIX)/g' \
 	    $< > $@.tmp
 	$(MV) $@.tmp $@
 

@@ -609,6 +609,10 @@ class Arguments : AllStatic {
 
   // Utility: copies src into buf, replacing "%%" with "%" and "%p" with pid.
   static bool copy_expand_pid(const char* src, size_t srclen, char* buf, size_t buflen);
+
+  static void PropertyList_add(SystemProperty* prop) {
+    PropertyList_add(&_system_properties, prop);
+  }
 };
 
 bool Arguments::gc_selected() {

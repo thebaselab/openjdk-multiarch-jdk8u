@@ -317,6 +317,7 @@ class Thread: public ThreadShadow {
   virtual bool is_VM_thread()       const            { return false; }
   virtual bool is_Java_thread()     const            { return false; }
   virtual bool is_Compiler_thread() const            { return false; }
+  virtual bool is_service_thread() const             { return false; }
   virtual bool is_hidden_from_external_view() const  { return false; }
   virtual bool is_jvmti_agent_thread() const         { return false; }
   // True iff the thread can perform GC operations at a safepoint.
@@ -335,6 +336,7 @@ class Thread: public ThreadShadow {
 
   // Returns the current thread
   static inline Thread* current();
+  static inline Thread* current_or_null();
 
   // Common thread operations
   static void set_priority(Thread* thread, ThreadPriority priority);
@@ -666,7 +668,7 @@ protected:
   static void muxRelease  (volatile intptr_t * Lock) ;
 
 private:
-#ifdef ASSERT
+#if defined(ASSERT) && defined(__APPLE__) && defined(AARCH64)
   bool _wx_init;
   WXMode _wx_state;
   static inline void verify_wx_init(WXMode state) {
@@ -758,9 +760,16 @@ inline Thread* Thread::current() {
          "Don't use Thread::current() inside signal handler");
 #endif
 #endif
-  Thread* thread = ThreadLocalStorage::thread();
-  assert(thread != NULL, "just checking");
-  return thread;
+  Thread* current = current_or_null();
+  assert(current != NULL, "Thread::current() called on detached thread");
+  return current;
+}
+
+inline Thread* Thread::current_or_null() {
+  if (ThreadLocalStorage::is_initialized()) {
+    return ThreadLocalStorage::thread();
+  }
+  return NULL;
 }
 
 // Name support for threads.  non-JavaThread subclasses with multiple
@@ -853,6 +862,7 @@ typedef void (*ThreadFunction)(JavaThread*, TRAPS);
 class JavaThread: public Thread {
   friend class VMStructs;
  private:
+  bool           _in_asgct;                      // Is set when this JavaThread is handling ASGCT call
   JavaThread*    _next;                          // The next thread in the Threads list
   oop            _threadObj;                     // The Java level thread object
 
@@ -1877,12 +1887,16 @@ private:
 public:
   uint get_claimed_par_id() { return _claimed_par_id; }
   void set_claimed_par_id(uint id) { _claimed_par_id = id;}
+
+  // AsyncGetCallTrace support
+  inline bool in_asgct(void) {return _in_asgct;}
+  inline void set_in_asgct(bool value) {_in_asgct = value;}
 };
 
 // Inline implementation of JavaThread::current
 inline JavaThread* JavaThread::current() {
-  Thread* thread = ThreadLocalStorage::thread();
-  assert(thread != NULL && thread->is_Java_thread(), "just checking");
+  Thread* thread = Thread::current();
+  assert(thread->is_Java_thread(), "just checking");
   return (JavaThread*)thread;
 }
 

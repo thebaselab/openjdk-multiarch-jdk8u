@@ -589,6 +589,15 @@ public class AlgorithmId implements Serializable, DerEncoder {
             || name.equalsIgnoreCase("SHA1/RSA")) {
             return AlgorithmId.sha1WithRSAEncryption_oid;
         }
+        if (name.equalsIgnoreCase("SHA256WithRSA")) {
+            return AlgorithmId.sha256WithRSAEncryption_oid;
+        }
+        if (name.equalsIgnoreCase("SHA384WithRSA")) {
+            return AlgorithmId.sha384WithRSAEncryption_oid;
+        }
+        if (name.equalsIgnoreCase("SHA512WithRSA")) {
+            return AlgorithmId.sha512WithRSAEncryption_oid;
+        }
         if (name.equalsIgnoreCase("SHA1withECDSA")
                 || name.equalsIgnoreCase("ECDSA")) {
             return AlgorithmId.sha1WithECDSA_oid;
@@ -606,57 +615,60 @@ public class AlgorithmId implements Serializable, DerEncoder {
             return AlgorithmId.sha512WithECDSA_oid;
         }
 
-        // See if any of the installed providers supply a mapping from
-        // the given algorithm name to an OID string
-        String oidString;
-        if (!initOidTable) {
-            Provider[] provs = Security.getProviders();
-            for (int i=0; i<provs.length; i++) {
-                for (Enumeration<Object> enum_ = provs[i].keys();
-                     enum_.hasMoreElements(); ) {
-                    String alias = (String)enum_.nextElement();
-                    String upperCaseAlias = alias.toUpperCase(Locale.ENGLISH);
-                    int index;
-                    if (upperCaseAlias.startsWith("ALG.ALIAS") &&
-                            (index=upperCaseAlias.indexOf("OID.", 0)) != -1) {
-                        index += "OID.".length();
-                        if (index == alias.length()) {
-                            // invalid alias entry
-                            break;
-                        }
-                        if (oidTable == null) {
-                            oidTable = new HashMap<String,ObjectIdentifier>();
-                        }
-                        oidString = alias.substring(index);
-                        String stdAlgName = provs[i].getProperty(alias);
-                        if (stdAlgName != null) {
-                            stdAlgName = stdAlgName.toUpperCase(Locale.ENGLISH);
-                        }
-                        if (stdAlgName != null &&
-                                oidTable.get(stdAlgName) == null) {
-                            oidTable.put(stdAlgName,
-                                         new ObjectIdentifier(oidString));
-                        }
-                    }
-                }
-            }
-
-            if (oidTable == null) {
-                oidTable = Collections.<String,ObjectIdentifier>emptyMap();
-            }
-            initOidTable = true;
-        }
-
-        return oidTable.get(name.toUpperCase(Locale.ENGLISH));
+        return oidTable().get(name.toUpperCase(Locale.ENGLISH));
     }
 
     private static ObjectIdentifier oid(int ... values) {
         return ObjectIdentifier.newInternal(values);
     }
 
-    private static boolean initOidTable = false;
-    private static Map<String,ObjectIdentifier> oidTable;
+    private static volatile Map<String,ObjectIdentifier> oidTable;
     private static final Map<ObjectIdentifier,String> nameTable;
+
+    /** Returns the oidTable, lazily initializing it on first access. */
+    private static Map<String,ObjectIdentifier> oidTable()
+        throws IOException {
+        // Double checked locking; safe because oidTable is volatile
+        Map<String,ObjectIdentifier> tab;
+        if ((tab = oidTable) == null) {
+            synchronized (AlgorithmId.class) {
+                if ((tab = oidTable) == null)
+                    oidTable = tab = computeOidTable();
+            }
+        }
+        return tab;
+    }
+
+    /** Collects the algorithm names from the installed providers. */
+    private static HashMap<String,ObjectIdentifier> computeOidTable()
+        throws IOException {
+        HashMap<String,ObjectIdentifier> tab = new HashMap<>();
+        for (Provider provider : Security.getProviders()) {
+            for (Object key : provider.keySet()) {
+                String alias = (String)key;
+                String upperCaseAlias = alias.toUpperCase(Locale.ENGLISH);
+                int index;
+                if (upperCaseAlias.startsWith("ALG.ALIAS") &&
+                    (index=upperCaseAlias.indexOf("OID.", 0)) != -1) {
+                    index += "OID.".length();
+                    if (index == alias.length()) {
+                        // invalid alias entry
+                        break;
+                    }
+                    String oidString = alias.substring(index);
+                    String stdAlgName = provider.getProperty(alias);
+                    if (stdAlgName != null) {
+                        stdAlgName = stdAlgName.toUpperCase(Locale.ENGLISH);
+                    }
+                    if (stdAlgName != null &&
+                        tab.get(stdAlgName) == null) {
+                        tab.put(stdAlgName, new ObjectIdentifier(oidString));
+                    }
+                }
+            }
+        }
+        return tab;
+    }
 
     /*****************************************************************/
 
@@ -809,8 +821,14 @@ public class AlgorithmId implements Serializable, DerEncoder {
         ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 5, 10});
     public static final ObjectIdentifier pbeWithSHA1AndRC2_oid =
         ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 5, 11});
+    public static ObjectIdentifier pbeWithSHA1AndRC4_128_oid =
+        ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 12, 1, 1});
+    public static ObjectIdentifier pbeWithSHA1AndRC4_40_oid =
+        ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 12, 1, 2});
     public static ObjectIdentifier pbeWithSHA1AndDESede_oid =
         ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 12, 1, 3});
+    public static ObjectIdentifier pbeWithSHA1AndRC2_128_oid =
+        ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 12, 1, 5});
     public static ObjectIdentifier pbeWithSHA1AndRC2_40_oid =
         ObjectIdentifier.newInternal(new int[] {1, 2, 840, 113549, 1, 12, 1, 6});
 
@@ -999,7 +1017,10 @@ public class AlgorithmId implements Serializable, DerEncoder {
         nameTable.put(pbeWithMD5AndRC2_oid, "PBEWithMD5AndRC2");
         nameTable.put(pbeWithSHA1AndDES_oid, "PBEWithSHA1AndDES");
         nameTable.put(pbeWithSHA1AndRC2_oid, "PBEWithSHA1AndRC2");
+        nameTable.put(pbeWithSHA1AndRC4_128_oid, "PBEWithSHA1AndRC4_128");
+        nameTable.put(pbeWithSHA1AndRC4_40_oid, "PBEWithSHA1AndRC4_40");
         nameTable.put(pbeWithSHA1AndDESede_oid, "PBEWithSHA1AndDESede");
+        nameTable.put(pbeWithSHA1AndRC2_128_oid, "PBEWithSHA1AndRC2_128");
         nameTable.put(pbeWithSHA1AndRC2_40_oid, "PBEWithSHA1AndRC2_40");
     }
 

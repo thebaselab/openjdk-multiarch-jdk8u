@@ -26,18 +26,23 @@
  * halfsiphash code adapted from reference implementation
  * (https://github.com/veorq/SipHash/blob/master/halfsiphash.c)
  * which is distributed with the following copyright:
- *
- * SipHash reference C implementation
- *
- * Copyright (c) 2016 Jean-Philippe Aumasson <jeanphilippe.aumasson@gmail.com>
- *
- * To the extent possible under law, the author(s) have dedicated all copyright
- * and related and neighboring rights to this software to the public domain
- * worldwide. This software is distributed without any warranty.
- *
- * You should have received a copy of the CC0 Public Domain Dedication along
- * with this software. If not, see
- * <http://creativecommons.org/publicdomain/zero/1.0/>.
+ */
+
+/*
+   SipHash reference C implementation
+
+   Copyright (c) 2012-2021 Jean-Philippe Aumasson
+   <jeanphilippe.aumasson@gmail.com>
+   Copyright (c) 2012-2014 Daniel J. Bernstein <djb@cr.yp.to>
+
+   To the extent possible under law, the author(s) have dedicated all copyright
+   and related and neighboring rights to this software to the public domain
+   worldwide. This software is distributed without any warranty.
+
+   You should have received a copy of the CC0 Public Domain Dedication along
+   with
+   this software. If not, see
+   <http://creativecommons.org/publicdomain/zero/1.0/>.
  */
 
 #include "precompiled.hpp"
@@ -133,7 +138,9 @@ static uint64_t halfsiphash_finish64(uint32_t v[4], int rounds) {
 }
 
 // HalfSipHash-2-4 (32-bit output) for Symbols
-uint32_t AltHashing::halfsiphash_32(uint64_t seed, const uint8_t* data, int len) {
+uint32_t AltHashing::halfsiphash_32(uint64_t seed, const void* in, int len) {
+
+  const unsigned char* data = (const unsigned char*)in;
   uint32_t v[4];
   uint32_t newdata;
   int off = 0;
@@ -311,16 +318,16 @@ uint64_t AltHashing::halfsiphash_64(const uint32_t* data, int len) {
   // https://github.com/veorq/SipHash
   void AltHashing::testHalfsiphash_64_FromReference() {
 
-    const uint64_t seed = 0x0706050403020100;
+    const uint64_t seed = UCONST64(0x0706050403020100);
     const uint64_t results[16] = {
-              0xc83cb8b9591f8d21, 0xa12ee55b178ae7d5,
-              0x8c85e4bc20e8feed, 0x99c7f5ae9f1fc77b,
-              0xb5f37b5fd2aa3673, 0xdba7ee6f0a2bf51b,
-              0xf1a63fae45107470, 0xb516001efb5f922d,
-              0x6c6211d8469d7028, 0xdc7642ec407ad686,
-              0x4caec8671cc8385b, 0x5ab1dc27adf3301e,
-              0x3e3ea94bc0a8eaa9, 0xe150f598795a4402,
-              0x1d5ff142f992a4a1, 0x60e426bf902876d6
+              UCONST64(0xc83cb8b9591f8d21), UCONST64(0xa12ee55b178ae7d5),
+              UCONST64(0x8c85e4bc20e8feed), UCONST64(0x99c7f5ae9f1fc77b),
+              UCONST64(0xb5f37b5fd2aa3673), UCONST64(0xdba7ee6f0a2bf51b),
+              UCONST64(0xf1a63fae45107470), UCONST64(0xb516001efb5f922d),
+              UCONST64(0x6c6211d8469d7028), UCONST64(0xdc7642ec407ad686),
+              UCONST64(0x4caec8671cc8385b), UCONST64(0x5ab1dc27adf3301e),
+              UCONST64(0x3e3ea94bc0a8eaa9), UCONST64(0xe150f598795a4402),
+              UCONST64(0x1d5ff142f992a4a1), UCONST64(0x60e426bf902876d6)
     };
     uint32_t vector[16];
 

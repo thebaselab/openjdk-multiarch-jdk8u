@@ -1137,7 +1137,7 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
   // this call to parseClassFile
   ResourceMark rm(THREAD);
   ClassFileParser parser(st);
-  CRS_ONLY(parser.set_need_file_hash(THREAD));
+  CRS_ONLY(parser.set_need_hash(THREAD));
   instanceKlassHandle k = parser.parseClassFile(class_name,
                                                 loader_data,
                                                 protection_domain,
@@ -1204,7 +1204,14 @@ Klass* SystemDictionary::resolve_from_stream(Symbol* class_name,
       define_instance_class(k, THREAD);
     }
 
-    CRS_ONLY(ConnectedRuntime::notify_class_load(k, parser.get_file_hash(), parser.get_file_hash_length(), st->source(), THREAD));
+#if INCLUDE_CRS
+    if (!HAS_PENDING_EXCEPTION) {
+      ConnectedRuntime::notify_class_load(k,
+              parser.is_class_transformed(), parser.get_original_hash(),
+              parser.get_hash(), parser.get_hash_length(),
+              st->source(), THREAD);
+    }
+#endif
   }
 
   // Make sure we have an entry in the SystemDictionary on success
@@ -2034,12 +2041,11 @@ void SystemDictionary::initialize_preloaded_classes(TRAPS) {
   InstanceKlass::cast(WK_KLASS(Reference_klass))->set_reference_type(REF_OTHER);
   InstanceRefKlass::update_nonstatic_oop_maps(WK_KLASS(Reference_klass));
 
-  initialize_wk_klasses_through(WK_KLASS_ENUM_NAME(Cleaner_klass), scan, CHECK);
+  initialize_wk_klasses_through(WK_KLASS_ENUM_NAME(PhantomReference_klass), scan, CHECK);
   InstanceKlass::cast(WK_KLASS(SoftReference_klass))->set_reference_type(REF_SOFT);
   InstanceKlass::cast(WK_KLASS(WeakReference_klass))->set_reference_type(REF_WEAK);
   InstanceKlass::cast(WK_KLASS(FinalReference_klass))->set_reference_type(REF_FINAL);
   InstanceKlass::cast(WK_KLASS(PhantomReference_klass))->set_reference_type(REF_PHANTOM);
-  InstanceKlass::cast(WK_KLASS(Cleaner_klass))->set_reference_type(REF_CLEANER);
 
   initialize_wk_klasses_through(WK_KLASS_ENUM_NAME(ReferenceQueue_klass), scan, CHECK);
 

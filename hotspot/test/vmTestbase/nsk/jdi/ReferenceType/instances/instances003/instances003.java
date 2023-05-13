@@ -116,6 +116,8 @@ public class instances003 extends HeapwalkingDebugger {
         final int createInstanceCount = 50;
         final int referrerCount = 1;
 
+        new jdk.test.lib.crs.CRSUtils().waitForCRSAgentIntialized();
+
         List<ObjectReference> objectsToFilter = HeapwalkingDebugger.getObjectReferences(className, vm);
 
         // create 'createInstanceCount' instances of test class

@@ -385,7 +385,7 @@ extern Mutex* tty_lock;
 char* get_datetime_string(char *buf, size_t len) {
   os::local_time_string(buf, len);
   int i = (int)strlen(buf);
-  while (i-- >= 0) {
+  while (--i >= 0) {
     if (buf[i] == ' ') buf[i] = '_';
     else if (buf[i] == ':') buf[i] = '-';
   }
@@ -673,7 +673,10 @@ void test_snprintf(PrintFn pf, bool expect_count) {
 static int vsnprintf_wrapper(char* buf, size_t len, const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
+PRAGMA_DIAG_PUSH
+PRAGMA_FORMAT_NONLITERAL_IGNORED_INTERNAL
   int result = os::vsnprintf(buf, len, fmt, args);
+PRAGMA_DIAG_POP
   va_end(args);
   return result;
 }

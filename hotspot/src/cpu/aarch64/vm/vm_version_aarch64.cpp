@@ -76,6 +76,17 @@ void VM_Version::initialize() {
     if (PrefetchCopyIntervalInBytes >= 32768)
       PrefetchCopyIntervalInBytes = 32760;
   }
+
+  if (AllocatePrefetchDistance !=-1 && (AllocatePrefetchDistance & 7)) {
+    warning("AllocatePrefetchDistance must be multiple of 8");
+    AllocatePrefetchDistance &= ~7;
+  }
+
+  if (AllocatePrefetchStepSize & 7) {
+    warning("AllocatePrefetchStepSize must be multiple of 8");
+    AllocatePrefetchStepSize &= ~7;
+  }
+
   FLAG_SET_DEFAULT(UseSSE42Intrinsics, true);
 
 
@@ -144,7 +155,11 @@ void VM_Version::initialize() {
     }
   }
 
-  if (UseGHASHIntrinsics) {
+  if (_cpuFeatures & CPU_PMULL) {
+    if (FLAG_IS_DEFAULT(UseGHASHIntrinsics)) {
+      FLAG_SET_DEFAULT(UseGHASHIntrinsics, true);
+    }
+  } else if (UseGHASHIntrinsics) {
     warning("GHASH intrinsics are not available on this CPU");
     FLAG_SET_DEFAULT(UseGHASHIntrinsics, false);
   }

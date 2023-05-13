@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,6 +32,10 @@
 #include "jvm.h"
 #include "jdk_util.h"
 
+/* defined in libverify.so/verify.dll (src file common/check_format.c) */
+extern jboolean VerifyClassname(char *utf_name, jboolean arrayAllowed);
+extern jboolean VerifyFixClassname(char *utf_name);
+
 #include "sun_misc_URLClassPath.h"
 
 /* defined in libverify.so/verify.dll (src file common/check_format.c) */
@@ -60,7 +64,7 @@ Java_sun_misc_URLClassPath_knownToNotExist0(JNIEnv *env, jclass cls, jobject loa
         // getUTF() throws OOME before returning NULL, no need to throw OOME here
         return result;
     }
-    VerifyFixClassname(clname);
+    (void)VerifyFixClassname(clname);
 
     if (!VerifyClassname(clname, JNI_TRUE)) {  /* expects slashed name */
         goto done;

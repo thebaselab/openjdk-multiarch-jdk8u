@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2020, Oracle and/or its affiliates. All rights reserved
+ * Copyright (c) 1997, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -96,6 +96,7 @@
 #endif // INCLUDE_ALL_GCS
 
 #include <errno.h>
+#include <jfr/recorder/jfrRecorder.hpp>
 
 #ifndef USDT2
 HS_DTRACE_PROBE_DECL1(hotspot, thread__sleep__begin, long long);
@@ -408,12 +409,6 @@ JVM_ENTRY(jobject, JVM_InitProperties(JNIEnv *env, jobject properties))
 #endif
   PUTPROP(props, "sun.cds.enableSharedLookupCache", enableSharedLookupCache);
 
-  if(UseOpenJSSE)
-    PUTPROP(props, "org.openjsse.provider", "true");
-
-  if(UseLegacy8uJSSE)
-    PUTPROP(props, "org.legacy8ujsse.provider", "true");
-
   return properties;
 JVM_END
 
@@ -438,16 +433,6 @@ JVM_END
 // java.lang.Runtime /////////////////////////////////////////////////////////////////////////
 
 extern volatile jint vm_created;
-
-JVM_ENTRY_NO_ENV(void, JVM_Exit(jint code))
-  if (vm_created != 0 && (code == 0)) {
-    // The VM is about to exit. We call back into Java to check whether finalizers should be run
-    Universe::run_finalizers_on_exit();
-  }
-  before_exit(thread);
-  vm_exit(code);
-JVM_END
-
 
 JVM_ENTRY_NO_ENV(void, JVM_BeforeHalt())
   JVMWrapper("JVM_BeforeHalt");
@@ -1778,6 +1763,18 @@ Klass* InstanceKlass::compute_enclosing_class_impl(instanceKlassHandle k,
         found = (k() == inner_klass);
         if (found && ooff != 0) {
           ok = i_cp->klass_at(ooff, CHECK_NULL);
+          if (!ok->oop_is_instance()) {
+            // If the outer class is not an instance klass then it cannot have
+            // declared any inner classes.
+            ResourceMark rm(THREAD);
+            Exceptions::fthrow(
+              THREAD_AND_LOCATION,
+              vmSymbols::java_lang_IncompatibleClassChangeError(),
+              "%s and %s disagree on InnerClasses attribute",
+              ok->external_name(),
+              k->external_name());
+            return NULL;
+          }
           outer_klass = instanceKlassHandle(thread, ok);
           *inner_is_member = true;
         }
@@ -3167,6 +3164,15 @@ JVM_ENTRY(void, JVM_StartThread(JNIEnv* env, jobject jthread))
     THROW_MSG(vmSymbols::java_lang_OutOfMemoryError(),
               "unable to create new native thread");
   }
+
+#if INCLUDE_JFR
+  if (JfrRecorder::is_recording() && EventThreadStart::is_enabled() &&
+      EventThreadStart::is_stacktrace_enabled()) {
+    JfrThreadLocal* tl = native_thread->jfr_thread_local();
+    // skip Thread.start() and Thread.start0()
+    tl->set_cached_stack_trace_id(JfrStackTraceRepository::record(thread, 2));
+  }
+#endif
 
   Thread::start(native_thread);
 

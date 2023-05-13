@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2011, 2020, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2011, 2021, Oracle and/or its affiliates. All rights reserved.
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
 #
 # This code is free software; you can redistribute it and/or modify it
@@ -524,16 +524,44 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_JDK_OPTIONS],
 
   ###############################################################################
   #
+  # Enable or disable com.azul.tooling
+  #
+  AC_MSG_CHECKING([whether to build Azul Tooling])
+  AC_ARG_ENABLE(cat, [AS_HELP_STRING([--enable-cat],
+      [Enable Azul Tooling (com.azul.tooling) support @<:@auto@:>@])],,
+      [enable_cat=auto])
+  if test "x$enable_cat" = "xno"; then
+    ENABLE_COM_AZUL_TOOLING=false
+  elif test "x$enable_cat" = "xyes"; then
+    ENABLE_COM_AZUL_TOOLING=true
+  elif test "x$enable_cat" = "xauto"; then
+    if test "x$enable_crs" = "xyes"; then
+      ENABLE_COM_AZUL_TOOLING=true
+    else
+      ENABLE_COM_AZUL_TOOLING=false
+    fi
+  else
+    AC_MSG_ERROR([--enable-cat must be set to yes, no or auto])
+  fi
+  AC_MSG_RESULT([$ENABLE_COM_AZUL_TOOLING])
+  AC_SUBST(ENABLE_COM_AZUL_TOOLING)
+
+  ###############################################################################
+  #
   # Enable or disable Connected Runtime Services
   #
   AC_MSG_CHECKING([whether to build Connected Runtime Services])
   AC_ARG_ENABLE(crs, [AS_HELP_STRING([--enable-crs],
-      [Enable Connected Runtime Services support @<:@depends on platform@:>@])],,
+      [Enable Connected Runtime Services support @<:@disabled@:>@])],,
       [enable_crs=auto])
   if test "x$enable_crs" = "xno"; then
     ENABLE_CRS=false
   elif test "x$enable_crs" = "xyes"; then
-    ENABLE_CRS=true
+    if test "x$ENABLE_COM_AZUL_TOOLING" = "xtrue"; then
+      ENABLE_CRS=true
+    else
+      AC_MSG_ERROR([--enable-crs=yes requires --enable-cat=yes/auto])
+    fi
   elif test "x$enable_crs" = "xauto"; then
     ENABLE_CRS=false
   else
@@ -767,8 +795,8 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_DEBUG_SYMBOLS],
     # Default is on if objcopy is found
     if test "x$OBJCOPY" != x; then
       ENABLE_DEBUG_SYMBOLS=true
-    # MacOS X and Windows don't use objcopy but default is on for those OSes
-    elif test "x$OPENJDK_TARGET_OS" = xmacosx || test "x$OPENJDK_TARGET_OS" = xwindows; then
+    # AIX, MacOS X and Windows don't use objcopy but default is on for those OSes
+    elif test "x$OPENJDK_TARGET_OS" = xaix || test "x$OPENJDK_TARGET_OS" = xmacosx || test "x$OPENJDK_TARGET_OS" = xwindows; then
       ENABLE_DEBUG_SYMBOLS=true
     else
       ENABLE_DEBUG_SYMBOLS=false
@@ -806,11 +834,6 @@ AC_DEFUN_ONCE([JDKOPT_SETUP_DEBUG_SYMBOLS],
       [AS_HELP_STRING([--with-native-debug-symbols],
       [set the native debug symbol configuration (none, internal, external, zipped) @<:@varying@:>@])],
       [
-        if test "x$OPENJDK_TARGET_OS" = xaix; then
-          if test "x$with_native_debug_symbols" = xexternal || test "x$with_native_debug_symbols" = xzipped; then
-            AC_MSG_ERROR([AIX only supports the parameters 'none' and 'internal' for --with-native-debug-symbols])
-          fi
-        fi
       ],
       [
         # Default to unset for backwards compatibility

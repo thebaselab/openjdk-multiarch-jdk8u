@@ -247,9 +247,6 @@ static JNINativeMethod lookup_special_native_methods[] = {
 #if INCLUDE_JFR
   { CC"Java_jdk_jfr_internal_JVM_registerNatives",                 NULL, FN_PTR(jfr_register_natives)            },
 #endif
-#if INCLUDE_CRS
-  { CC"Java_com_azul_crs_agent_AgentLoader_registerNatives",       NULL, FN_PTR(crs_register_natives)            }
-#endif
 };
 
 static address lookup_special_native(char* jni_name) {

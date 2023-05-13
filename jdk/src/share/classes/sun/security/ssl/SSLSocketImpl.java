@@ -96,6 +96,11 @@ public final class SSLSocketImpl
     private static final boolean trustNameService =
             Utilities.getBooleanProperty("jdk.tls.trustNameService", false);
 
+    /*
+     * Default timeout to skip bytes from the open socket
+     */
+    private static final int DEFAULT_SKIP_TIMEOUT = 1;
+
     /**
      * Package-private constructor used to instantiate an unconnected
      * socket.
@@ -551,7 +556,7 @@ public final class SSLSocketImpl
     // locks may be deadlocked.
     @Override
     public void close() throws IOException {
-        if (tlsIsClosed) {
+        if (isClosed()) {
             return;
         }
 
@@ -560,19 +565,16 @@ public final class SSLSocketImpl
         }
 
         try {
-            // shutdown output bound, which may have been closed previously.
-            if (!isOutputShutdown()) {
-                duplexCloseOutput();
-            }
+            if (isConnected()) {
+                // shutdown output bound, which may have been closed previously.
+                if (!isOutputShutdown()) {
+                    duplexCloseOutput();
+                }
 
-            // shutdown input bound, which may have been closed previously.
-            if (!isInputShutdown()) {
-                duplexCloseInput();
-            }
-
-            if (!isClosed()) {
-                // close the connection directly
-                closeSocket(false);
+                // shutdown input bound, which may have been closed previously.
+                if (!isInputShutdown()) {
+                    duplexCloseInput();
+                }
             }
         } catch (IOException ioe) {
             // ignore the exception
@@ -580,7 +582,19 @@ public final class SSLSocketImpl
                 SSLLogger.warning("SSLSocket duplex close failed", ioe);
             }
         } finally {
-            tlsIsClosed = true;
+            if (!isClosed()) {
+                // close the connection directly
+                try {
+                    closeSocket(false);
+                } catch (IOException ioe) {
+                    // ignore the exception
+                    if (SSLLogger.isOn && SSLLogger.isOn("ssl")) {
+                        SSLLogger.warning("SSLSocket close failed", ioe);
+                    }
+                } finally {
+                    tlsIsClosed = true;
+                }
+            }
         }
     }
 
@@ -1648,6 +1662,32 @@ public final class SSLSocketImpl
         }
 
         if (autoClose || !isLayered()) {
+            // Try to clear the kernel buffer to avoid TCP connection resets.
+            if (conContext.inputRecord instanceof
+                    SSLSocketInputRecord && isConnected) {
+                if (appInput.readLock.tryLock()) {
+                    int soTimeout = getSoTimeout();
+                    try {
+                        // deplete could hang on the skip operation
+                        // in case of infinite socket read timeout.
+                        // Change read timeout to avoid deadlock.
+                        // This workaround could be replaced later
+                        // with the right synchronization
+                        if (soTimeout == 0) {
+                            setSoTimeout(DEFAULT_SKIP_TIMEOUT);
+                        }
+                        ((SSLSocketInputRecord) (conContext.inputRecord)).deplete(false);
+                    } catch (java.net.SocketTimeoutException stEx) {
+                        // skip timeout exception during deplete
+                    } finally {
+                        if (soTimeout == 0) {
+                            setSoTimeout(soTimeout);
+                        }
+                        appInput.readLock.unlock();
+                    }
+                }
+            }
+
             super.close();
         } else if (selfInitiated) {
             if (!conContext.isInboundClosed() && !isInputShutdown()) {
@@ -1674,17 +1714,23 @@ public final class SSLSocketImpl
             SSLLogger.fine("wait for close_notify or alert");
         }
 
-        while (!conContext.isInboundClosed()) {
-            try {
-                Plaintext plainText = decode(null);
-                // discard and continue
-                if (SSLLogger.isOn && SSLLogger.isOn("ssl")) {
-                    SSLLogger.finest(
-                        "discard plaintext while waiting for close", plainText);
+        appInput.readLock.lock();
+        try {
+            while (!conContext.isInboundClosed()) {
+                try {
+                    Plaintext plainText = decode(null);
+                    // discard and continue
+                    if (SSLLogger.isOn && SSLLogger.isOn("ssl")) {
+                        SSLLogger.finest(
+                                "discard plaintext while waiting for close",
+                                plainText);
+                    }
+                } catch (Exception e) {   // including RuntimeException
+                    handleException(e);
                 }
-            } catch (Exception e) {   // including RuntimeException
-                handleException(e);
             }
+        } finally {
+            appInput.readLock.unlock();
         }
     }
 }

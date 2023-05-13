@@ -24,7 +24,7 @@
 /*
  * @test
  * @bug 8209178
- * @library ../../../../../lib/testlibrary
+ * @library /lib/testlibrary
  * @run main/othervm -Dsun.net.http.retryPost=true B8209178
  * @run main/othervm -Dsun.net.http.retryPost=false B8209178
  * @summary Proxied HttpsURLConnection doesn't send BODY when retrying POST request

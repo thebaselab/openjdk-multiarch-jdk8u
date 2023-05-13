@@ -77,6 +77,11 @@ import java.text.SimpleDateFormat;
 import java.util.TimeZone;
 import java.net.MalformedURLException;
 import java.nio.ByteBuffer;
+
+import com.azul.tooling.in.NetConnectionEvent;
+import com.azul.tooling.in.Tooling;
+
+import static java.lang.System.currentTimeMillis;
 import static sun.net.www.protocol.http.AuthScheme.BASIC;
 import static sun.net.www.protocol.http.AuthScheme.DIGEST;
 import static sun.net.www.protocol.http.AuthScheme.NTLM;
@@ -1134,7 +1139,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
              * 1) if (instProxy != null)
              *        connect to instProxy; raise exception if failed
              * 2) else use system default ProxySelector
-             * 3) is 2) fails, make direct connection
+             * 3) else make a direct connection if ProxySelector is not present
              */
 
             if (instProxy == null) { // no instance Proxy is set
@@ -1177,8 +1182,10 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                             if (p != Proxy.NO_PROXY) {
                                 sel.connectFailed(uri, p.address(), ioex);
                                 if (!it.hasNext()) {
-                                    // fallback to direct connection
-                                    http = getNewHttpClient(url, null, connectTimeout, false);
+                                    if (logger.isLoggable(PlatformLogger.Level.FINEST)) {
+                                        logger.finest("Retrying with proxy: " + p.toString());
+                                    }
+                                    http = getNewHttpClient(url, p, connectTimeout, false);
                                     http.setReadTimeout(readTimeout);
                                     break;
                                 }
@@ -1605,6 +1612,16 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                 }
 
                 inputStream = http.getInputStream();
+
+                if (NetConnectionEvent.isEnabled()) {
+                    InetAddress toAddress =
+                            InetAddress.getByName(url.getHost());
+                    int toPort =
+                            url.getPort() == -1 ? url.getDefaultPort() : url.getPort();
+                    Tooling.notifyEvent(NetConnectionEvent.httpConnectionEvent(
+                            url.getProtocol(), toAddress, toPort, getHeaderFields(),
+                            getURL().toString()));
+                }
 
                 respCode = getResponseCode();
                 if (respCode == -1) {
@@ -2813,7 +2830,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
         /* must save before calling close */
         reuseClient = http;
         InputStream is = http.getInputStream();
-        if (!method.equals("HEAD")) {
+        if (!method.equals("HEAD") || tunnelState == TunnelState.SETUP) {
             try {
                 /* we want to read the rest of the response without using the
                  * hurry mechanism, because that would close the connection

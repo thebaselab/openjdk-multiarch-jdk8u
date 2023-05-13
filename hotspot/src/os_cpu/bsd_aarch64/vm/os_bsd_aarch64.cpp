@@ -214,30 +214,6 @@ JVM_handle_bsd_signal(int sig,
                         int abort_if_unrecognized) {
   ucontext_t* uc = (ucontext_t*) ucVoid;
 
-  if (sig == SIGBUS) {
-    address addr = os::Bsd::ucontext_get_pc(uc);
-    //address addr = (address) info->si_addr;
-    //if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000) {
-    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR, 0x270000, PROT_READ | PROT_EXEC);
-    //} else if (addr >= os::GLOBAL_CODE_CACHE_ADDR + 0x270000 && addr < os::GLOBAL_CODE_CACHE_ADDR + 0x270000*2) {
-    //  return !mprotect(os::GLOBAL_CODE_CACHE_ADDR + 0x270000, 0x270000, PROT_READ | PROT_EXEC);
-    if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_SIZE && addr == info->si_addr) {
-      return !mprotect((address) ((uintptr_t)addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_EXEC);
-    } else { // if (t->is_Compiler_thread() || t->is_VM_thread()) {
-      return !mprotect((address) ((uintptr_t)info->si_addr & -PAGE_SIZE), PAGE_SIZE, PROT_READ | PROT_WRITE);
-    }
-  }
-/*
-  if (addr >= os::GLOBAL_CODE_CACHE_ADDR - os::GLOBAL_CODE_CACHE_DIFF && addr < os::GLOBAL_CODE_CACHE_ADDR) {
-    uc->context_pc = (uint64_t)addr + os::GLOBAL_CODE_CACHE_DIFF;
-    return 1;
-  } else if (addr >= os::GLOBAL_CODE_CACHE_ADDR && addr < os::GLOBAL_CODE_CACHE_ADDR + os::GLOBAL_CODE_CACHE_DIFF) {
-    // try again
-    uc->context_pc = (uint64_t)addr - os::GLOBAL_CODE_CACHE_DIFF;
-    return 1;
-  }
-*/
-
   Thread* t = ThreadLocalStorage::get_thread_slow();
 
   // Must do this before SignalHandlerMark, if crash protection installed we will longjmp away
@@ -297,14 +273,13 @@ JVM_handle_bsd_signal(int sig,
   if (info != NULL && uc != NULL && thread != NULL) {
     pc = (address) os::Bsd::ucontext_get_pc(uc);
 
-    if (StubRoutines::is_safefetch_fault(pc)) {
-      uc->context_pc = intptr_t(StubRoutines::continuation_for_safefetch_fault(pc));
-      return 1;
-    }
-
-
-    // Handle ALL stack overflow variations here
     if (sig == SIGSEGV || sig == SIGBUS) {
+      if (StubRoutines::is_safefetch_fault(pc)) {
+        uc->context_pc = intptr_t(StubRoutines::continuation_for_safefetch_fault(pc));
+        return 1;
+      }
+
+      // Handle ALL stack overflow variations here
       address addr = (address) info->si_addr;
 
       // check if fault address is within thread stack

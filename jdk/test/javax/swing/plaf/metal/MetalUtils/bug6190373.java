@@ -40,6 +40,7 @@ import static javax.swing.UIManager.getInstalledLookAndFeels;
  * @bug 6190373
  * @summary Tests 6190373
  * @author Scott Violet
+ * @modules java.desktop/sun.awt
  */
 public final class bug6190373 {
 

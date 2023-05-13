@@ -81,9 +81,6 @@
 #if INCLUDE_JFR
 #include "jfr/jfrEvents.hpp"
 #endif
-#if INCLUDE_CRS
-#include "services/connectedRuntime.hpp"
-#endif
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
@@ -393,7 +390,6 @@ void InstanceKlass::deallocate_contents(ClassLoaderData* loader_data) {
   // reference counting symbol names.
   release_C_heap_structures();
 
-  CRS_ONLY(ConnectedRuntime::notify_metaspace_eviction(this, methods()));
   deallocate_methods(loader_data, methods());
   set_methods(NULL);
 
@@ -1789,7 +1785,7 @@ jmethodID InstanceKlass::get_jmethod_id(instanceKlassHandle ik_h, methodHandle m
         // we're single threaded or at a safepoint - no locking needed
         get_jmethod_id_length_value(jmeths, idnum, &length, &id);
       } else {
-        MutexLocker ml(JmethodIdCreation_lock);
+        MutexLockerEx ml(JmethodIdCreation_lock, Mutex::_no_safepoint_check_flag);
         get_jmethod_id_length_value(jmeths, idnum, &length, &id);
       }
     }
@@ -1839,7 +1835,7 @@ jmethodID InstanceKlass::get_jmethod_id(instanceKlassHandle ik_h, methodHandle m
       id = get_jmethod_id_fetch_or_update(ik_h, idnum, new_id, new_jmeths,
                                           &to_dealloc_id, &to_dealloc_jmeths);
     } else {
-      MutexLocker ml(JmethodIdCreation_lock);
+      MutexLockerEx ml(JmethodIdCreation_lock, Mutex::_no_safepoint_check_flag);
       id = get_jmethod_id_fetch_or_update(ik_h, idnum, new_id, new_jmeths,
                                           &to_dealloc_id, &to_dealloc_jmeths);
     }
@@ -2548,8 +2544,6 @@ void InstanceKlass::notify_unload_class(InstanceKlass* ik) {
   event.set_definingClassLoader(ik->class_loader_data());
   event.commit();
 #endif
-
-  CRS_ONLY(ConnectedRuntime::notify_metaspace_eviction(ik);)
 }
 
 void InstanceKlass::release_C_heap_structures(InstanceKlass* ik) {

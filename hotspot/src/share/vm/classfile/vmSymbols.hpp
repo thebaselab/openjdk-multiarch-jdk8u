@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2022, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,7 +80,6 @@
   template(java_lang_ref_WeakReference,               "java/lang/ref/WeakReference")              \
   template(java_lang_ref_FinalReference,              "java/lang/ref/FinalReference")             \
   template(java_lang_ref_PhantomReference,            "java/lang/ref/PhantomReference")           \
-  template(sun_misc_Cleaner,                          "sun/misc/Cleaner")                         \
   template(java_lang_ref_Finalizer,                   "java/lang/ref/Finalizer")                  \
   template(java_lang_ref_ReferenceQueue,              "java/lang/ref/ReferenceQueue")             \
   template(java_lang_reflect_AccessibleObject,        "java/lang/reflect/AccessibleObject")       \
@@ -335,7 +334,6 @@
   template(reference_lock_name,                       "lock")                                     \
   template(reference_discovered_name,                 "discovered")                               \
   template(run_finalization_name,                     "runFinalization")                          \
-  template(run_finalizers_on_exit_name,               "runFinalizersOnExit")                      \
   template(uncaughtException_name,                    "uncaughtException")                        \
   template(dispatchUncaughtException_name,            "dispatchUncaughtException")                \
   template(initializeSystemClass_name,                "initializeSystemClass")                    \
@@ -583,9 +581,11 @@
   template(get_finalizer_histogram_name,               "getFinalizerHistogram")                                   \
   template(finalizer_histogram_entry_name_field,       "className")                                               \
   template(finalizer_histogram_entry_count_field,      "instanceCount")                                           \
-  CRS_ONLY(template(com_azul_crs_agent_AgentLoader,    "com/azul/crs/agent/AgentLoader"))                         \
+  CRS_ONLY(template(javaAgent_premain_name,            "premain"))                                                \
+  CRS_ONLY(template(javaAgent_premain_signature,  "(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V")) \
+  CRS_ONLY(template(url_class_loader_initializer_signature, "([Ljava/net/URL;Ljava/lang/ClassLoader;)V")) \
   CRS_ONLY(template(notifyClassLoad_name,              "notifyClassLoad"))                                        \
-  CRS_ONLY(template(notifyClassLoad_signature,         "(Ljava/lang/String;[BIILjava/lang/String;)V"))            \
+  CRS_ONLY(template(notifyClassLoad_signature,         "(Ljava/lang/String;[B[BIILjava/lang/String;)V"))          \
   CRS_ONLY(template(notifyToJavaCall_name,             "notifyToJavaCall"))                                       \
   CRS_ONLY(template(notifyFirstCall_name,              "notifyFirstCall"))                                        \
   CRS_ONLY(template(notifyFirstCall_signature,         "(ILjava/lang/String;)V"))                                 \
