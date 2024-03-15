@@ -507,6 +507,7 @@ Java_java_lang_System_mapLibraryName(JNIEnv *env, jclass ign, jstring libname)
         return NULL;
     }
     len = (*env)->GetStringLength(env, libname);
+    int libname_len = len;
     if (len > 240) {
         JNU_ThrowIllegalArgumentException(env, "name too long");
         return NULL;
@@ -514,8 +515,14 @@ Java_java_lang_System_mapLibraryName(JNIEnv *env, jclass ign, jstring libname)
     cpchars(chars, JNI_LIB_PREFIX, prefix_len);
     (*env)->GetStringRegion(env, libname, 0, len, chars + prefix_len);
     len += prefix_len;
-    cpchars(chars + len, JNI_LIB_SUFFIX, suffix_len);
-    len += suffix_len;
+
+    // "zip" -> "libzip.framework/libzip"
+    // ".framework/lib": 14 chars
+    cpchars(chars + len, ".framework/lib", 14);
+    len += 14;
+
+    (*env)->GetStringRegion(env, libname, 0, libname_len, chars + len);
+    len += libname_len;
 
     return (*env)->NewString(env, chars, len);
 }

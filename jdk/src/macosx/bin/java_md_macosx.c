@@ -54,7 +54,7 @@ struct NSAppArgs {
 };
 
 #define JVM_DLL "libjvm.dylib"
-#define JAVA_DLL "libjava.dylib"
+#define JAVA_DLL "libjava.framework/libjava"
 /* FALLBACK avoids naming conflicts with system libraries
  * (eg, ImageIO's libJPEG.dylib) */
 #define LD_LIBRARY_PATH "DYLD_FALLBACK_LIBRARY_PATH"
@@ -463,6 +463,7 @@ CreateExecutionEnvironment(int *pargc, char ***pargv,
           JLI_ReportErrorMessage(JRE_ERROR1);
           exit(2);
         }
+        // TODO: Change lib to libjava.framework for iOS
         JLI_Snprintf(jvmcfg, so_jvmcfg, "%s%slib%s%s%sjvm.cfg",
           jrepath, FILESEP, FILESEP,  "", "");
         /* Find the specified JVM type */
@@ -588,7 +589,7 @@ GetJVMPath(const char *jrepath, const char *jvmtype,
          * 64 bit client requests must load server library
          */
         const char *jvmtypeUsed = ((bitsWanted == 64) && (strcmp(jvmtype, "client") == 0)) ? "server" : jvmtype;
-        JLI_Snprintf(jvmpath, jvmpathsize, "%s/lib/%s/" JVM_DLL, jrepath, jvmtypeUsed);
+        JLI_Snprintf(jvmpath, jvmpathsize, "%s/../libjvm.framework/libjvm", jrepath);
     }
 
     JLI_TraceLauncher("Does `%s' exist ... ", jvmpath);
@@ -656,9 +657,9 @@ GetJREPath(char *path, jint pathsize, const char * arch, jboolean speculative)
         return JNI_TRUE;
     }
 
-    // If libjli.dylib is loaded from a macos bundle MacOS dir, find the JRE dir
-    // in ../Home.
-    const char altLastPathComponent[] = "/MacOS/libjli.dylib";
+    // If libjli.dylib is loaded from a ios bundle iOS dir, find the iOS dir
+    // in ../libjava.framework.
+    const char altLastPathComponent[] = "/libjli.framework/libjli";
     size_t sizeOfAltLastPathComponent = sizeof(altLastPathComponent) - 1;
     if (pathLen < sizeOfLastPathComponent) {
         return JNI_FALSE;
@@ -666,11 +667,11 @@ GetJREPath(char *path, jint pathsize, const char * arch, jboolean speculative)
 
     size_t indexOfAltLastPathComponent = pathLen - sizeOfAltLastPathComponent;
     if (0 == strncmp(realPathToSelf + indexOfAltLastPathComponent, altLastPathComponent, sizeOfAltLastPathComponent)) {
-        JLI_Snprintf(realPathToSelf + indexOfAltLastPathComponent, sizeOfAltLastPathComponent, "%s", "/Home/jre");
+        JLI_Snprintf(realPathToSelf + indexOfAltLastPathComponent, sizeOfAltLastPathComponent, "%s", "/libjava.framework/jre");
         if (access(realPathToSelf, F_OK) == 0) {
             return JNI_TRUE;
         }
-        JLI_Snprintf(realPathToSelf + indexOfAltLastPathComponent, sizeOfAltLastPathComponent, "%s", "/Home");
+        JLI_Snprintf(realPathToSelf + indexOfAltLastPathComponent, sizeOfAltLastPathComponent, "%s", "/libjava.framework");
         if (access(realPathToSelf, F_OK) == 0) {
             return JNI_TRUE;
         }

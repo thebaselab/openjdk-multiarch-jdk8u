@@ -472,13 +472,19 @@ void os::init_system_properties_values() {
     }
     Arguments::set_dll_dir(buf);
 
+    // iOS: Directly use JAVA_HOME environemnt variable
+    /*
     if (pslash != NULL) {
       pslash = strrchr(buf, '/');
       if (pslash != NULL) {
         *pslash = '\0';          // Get rid of /lib.
       }
     }
+    */
+    const char *home = ::getenv("JAVA_HOME");
+    strcpy(buf, home);
     Arguments::set_java_home(buf);
+    
     set_boot_path('/', ':');
   }
 
@@ -1304,7 +1310,7 @@ bool os::dll_build_name(char* buffer, size_t buflen,
   }
 
   if (pnamelen == 0) {
-    snprintf(buffer, buflen, JNI_LIB_PREFIX "%s" JNI_LIB_SUFFIX, fname);
+    snprintf(buffer, buflen, JNI_LIB_PREFIX "%s.framework/" JNI_LIB_PREFIX "%s", fname, fname);
     retval = true;
   } else if (strchr(pname, *os::path_separator()) != NULL) {
     int n;
@@ -1317,8 +1323,8 @@ bool os::dll_build_name(char* buffer, size_t buflen,
       if (pelements[i] == NULL || strlen(pelements[i]) == 0) {
         continue; // skip the empty path values
       }
-      snprintf(buffer, buflen, "%s/" JNI_LIB_PREFIX "%s" JNI_LIB_SUFFIX,
-          pelements[i], fname);
+      snprintf(buffer, buflen, "%s/" JNI_LIB_PREFIX "%s.framework/" JNI_LIB_PREFIX "%s",
+          pelements[i], fname, fname);
       if (file_exists(buffer)) {
         retval = true;
         break;
@@ -1334,7 +1340,7 @@ bool os::dll_build_name(char* buffer, size_t buflen,
       FREE_C_HEAP_ARRAY(char*, pelements, mtInternal);
     }
   } else {
-    snprintf(buffer, buflen, "%s/" JNI_LIB_PREFIX "%s" JNI_LIB_SUFFIX, pname, fname);
+    snprintf(buffer, buflen, "%s/" JNI_LIB_PREFIX "%s.framework/" JNI_LIB_PREFIX "%s", pname, fname, fname);
     retval = true;
   }
   return retval;
